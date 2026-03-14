@@ -6,7 +6,7 @@ import * as Phaser from 'phaser';
 import { SweetSprintScene } from './SweetSprintScene';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Cookie, Play, RotateCcw, Heart, Pause, Home, ChevronRight } from 'lucide-react';
+import { Cookie, Play, RotateCcw, Heart, Pause, Home } from 'lucide-react';
 
 export default function GameContainer() {
   const gameRef = useRef<HTMLDivElement>(null);
@@ -22,8 +22,8 @@ export default function GameContainer() {
     const config: Phaser.Types.Core.GameConfig = {
       type: Phaser.AUTO,
       parent: gameRef.current!,
-      width: 600,
-      height: 800,
+      width: 800,
+      height: 600,
       physics: {
         default: 'arcade',
         arcade: {
@@ -83,8 +83,6 @@ export default function GameContainer() {
   const goHome = () => {
     const scene = phaserGame.current?.scene.getScene('SweetSprintScene') as SweetSprintScene;
     scene?.restart();
-    // Re-pause is handled by SweetSprintScene's create() because restart() defaults to startPaused: true
-    // but in goHome we want to be absolutely sure.
     setGameState('start');
     setScore(0);
     setCookies(0);
@@ -92,26 +90,26 @@ export default function GameContainer() {
   };
 
   return (
-    <div className="relative w-full h-screen flex flex-col items-center justify-center bg-background overflow-hidden">
+    <div className="relative w-full h-screen flex flex-col items-center justify-center bg-background overflow-hidden p-4">
       {/* Game Canvas Container */}
       <div 
         ref={gameRef} 
-        className={`w-full max-w-[600px] aspect-[3/4] shadow-2xl rounded-2xl overflow-hidden bg-white border-8 border-primary/20 transition-all ${gameState !== 'playing' ? 'blur-sm' : ''}`}
+        className={`w-full max-w-[800px] aspect-[4/3] shadow-2xl rounded-2xl overflow-hidden bg-white border-8 border-primary/20 transition-all ${gameState !== 'playing' ? 'blur-sm' : ''}`}
       />
 
       {/* Overlays */}
       {gameState === 'start' && (
         <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/40 backdrop-blur-sm">
-          <Card className="w-80 border-primary border-2 shadow-2xl animate-in zoom-in-95">
+          <Card className="w-96 border-primary border-2 shadow-2xl animate-in zoom-in-95">
             <CardHeader className="text-center">
-              <CardTitle className="text-4xl font-headline text-primary">SweetSprint</CardTitle>
+              <CardTitle className="text-5xl font-headline text-primary">SweetSprint</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4 text-center">
-              <p className="text-muted-foreground text-sm">
-                Move between lanes with <b>Arrows</b> or <b>A/D</b>. Jump with <b>Up</b>, Slide with <b>Down</b>.
+              <p className="text-muted-foreground">
+                Dodge obstacles and collect cookies! Use <b>W/S</b> or <b>Arrows</b> to switch lanes. <b>Space</b> to Jump, <b>Shift</b> to Slide.
               </p>
-              <Button size="lg" onClick={startGame} className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-6 text-xl">
-                <Play className="mr-2 h-6 w-6" /> START RUN
+              <Button size="lg" onClick={startGame} className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-8 text-2xl">
+                <Play className="mr-2 h-8 w-8" /> START RUN
               </Button>
             </CardContent>
           </Card>
@@ -141,27 +139,27 @@ export default function GameContainer() {
 
       {gameState === 'gameover' && (
         <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/60 backdrop-blur-md">
-          <Card className="w-80 border-secondary border-2 shadow-2xl animate-in zoom-in-95">
+          <Card className="w-96 border-secondary border-2 shadow-2xl animate-in zoom-in-95">
             <CardHeader className="text-center">
-              <CardTitle className="text-3xl font-headline text-secondary">Oops!</CardTitle>
-              <p className="text-muted-foreground">The run ended here.</p>
+              <CardTitle className="text-4xl font-headline text-secondary">Game Over!</CardTitle>
+              <p className="text-muted-foreground text-lg">You ran out of cookies (and energy)!</p>
             </CardHeader>
             <CardContent className="flex flex-col gap-6 text-center">
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-muted p-3 rounded-lg border border-border">
-                  <p className="text-xs uppercase font-bold text-muted-foreground">Score</p>
-                  <p className="text-2xl font-headline text-primary">{score}</p>
+                <div className="bg-muted p-4 rounded-xl border border-border shadow-inner">
+                  <p className="text-xs uppercase font-bold text-muted-foreground tracking-widest">Final Distance</p>
+                  <p className="text-3xl font-headline text-primary">{score}</p>
                 </div>
-                <div className="bg-muted p-3 rounded-lg border border-border">
-                  <p className="text-xs uppercase font-bold text-muted-foreground">Cookies</p>
-                  <p className="text-2xl font-headline text-accent flex items-center justify-center">
-                    <Cookie className="mr-1 h-5 w-5" /> {cookies}
+                <div className="bg-muted p-4 rounded-xl border border-border shadow-inner">
+                  <p className="text-xs uppercase font-bold text-muted-foreground tracking-widest">Total Cookies</p>
+                  <p className="text-3xl font-headline text-accent flex items-center justify-center">
+                    <Cookie className="mr-2 h-6 w-6" /> {cookies}
                   </p>
                 </div>
               </div>
               <div className="flex flex-col gap-3">
-                <Button size="lg" onClick={restartGame} className="w-full bg-secondary hover:bg-secondary/90 text-white font-bold py-4">
-                  <RotateCcw className="mr-2 h-5 w-5" /> TRY AGAIN
+                <Button size="lg" onClick={restartGame} className="w-full bg-secondary hover:bg-secondary/90 text-white font-bold py-6 text-xl">
+                  <RotateCcw className="mr-2 h-6 w-6" /> PLAY AGAIN
                 </Button>
                 <Button variant="ghost" onClick={goHome} className="w-full text-muted-foreground">
                   <Home className="mr-2 h-5 w-5" /> MAIN MENU
@@ -172,29 +170,29 @@ export default function GameContainer() {
         </div>
       )}
 
-      {/* Hud */}
-      <div className="absolute top-8 left-0 right-0 flex justify-between px-8 z-0 pointer-events-none">
-        <div className="flex gap-4">
-          <div className="flex flex-col items-center bg-white/80 backdrop-blur px-6 py-2 rounded-full shadow-lg border-2 border-primary/20">
-            <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Distance</span>
-            <span className="text-2xl font-headline tabular-nums">{score}</span>
+      {/* HUD */}
+      <div className="absolute top-12 left-0 right-0 flex justify-between px-12 z-0 pointer-events-none">
+        <div className="flex gap-6">
+          <div className="flex flex-col items-center bg-white/90 backdrop-blur px-8 py-3 rounded-2xl shadow-xl border-2 border-primary/20">
+            <span className="text-[12px] font-bold text-primary uppercase tracking-tighter">Distance</span>
+            <span className="text-3xl font-headline tabular-nums">{score}m</span>
           </div>
-          <div className="flex flex-col items-center bg-white/80 backdrop-blur px-6 py-2 rounded-full shadow-lg border-2 border-accent/20">
-            <span className="text-[10px] font-bold text-accent uppercase tracking-wider">Cookies</span>
-            <span className="text-2xl font-headline text-accent tabular-nums flex items-center">
-              <Cookie className="mr-1 h-5 w-5 fill-accent" /> {cookies}
+          <div className="flex flex-col items-center bg-white/90 backdrop-blur px-8 py-3 rounded-2xl shadow-xl border-2 border-accent/20">
+            <span className="text-[12px] font-bold text-accent uppercase tracking-tighter">Cookies</span>
+            <span className="text-3xl font-headline text-accent tabular-nums flex items-center">
+              <Cookie className="mr-2 h-6 w-6 fill-accent animate-pulse" /> {cookies}
             </span>
           </div>
         </div>
 
-        <div className="flex gap-4 items-start">
-          <div className="flex flex-col items-center bg-white/80 backdrop-blur px-6 py-2 rounded-full shadow-lg border-2 border-red-100">
-            <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider">Health</span>
-            <div className="flex gap-1 mt-1">
+        <div className="flex gap-6 items-start">
+          <div className="flex flex-col items-center bg-white/90 backdrop-blur px-8 py-3 rounded-2xl shadow-xl border-2 border-red-200">
+            <span className="text-[12px] font-bold text-red-500 uppercase tracking-tighter">Lives</span>
+            <div className="flex gap-2 mt-2">
               {[...Array(2)].map((_, i) => (
                 <Heart 
                   key={i} 
-                  className={`h-4 w-4 ${i < lives ? 'fill-red-500 text-red-500' : 'text-slate-300'}`} 
+                  className={`h-6 w-6 ${i < lives ? 'fill-red-500 text-red-500 drop-shadow-md' : 'text-slate-300'}`} 
                 />
               ))}
             </div>
@@ -205,9 +203,9 @@ export default function GameContainer() {
               size="icon" 
               variant="secondary" 
               onClick={pauseGame} 
-              className="rounded-full h-12 w-12 shadow-lg pointer-events-auto border-2 border-white"
+              className="rounded-full h-14 w-14 shadow-2xl pointer-events-auto border-4 border-white bg-secondary hover:bg-secondary/90"
             >
-              <Pause className="h-6 w-6" />
+              <Pause className="h-8 w-8 text-white fill-white" />
             </Button>
           )}
         </div>
