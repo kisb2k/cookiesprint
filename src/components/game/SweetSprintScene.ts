@@ -247,7 +247,7 @@ export class SweetSprintScene extends Phaser.Scene {
     this.obstacles.children.iterate((child: any) => {
       if (child) {
         const lane = child.getData('lane');
-        // Move obstacles based on lane speed multiplier
+        // Move obstacles based on lane speed multiplier to match ground movement
         child.x -= (this.baseSpeed * 0.05 * delta) * this.laneSpeedMultipliers[lane];
         if (child.x < -300) child.destroy();
       }
@@ -263,7 +263,9 @@ export class SweetSprintScene extends Phaser.Scene {
       return true;
     });
 
-    if (this.distance - this.lastSpawnDistance > this.spawnInterval) {
+    // Ensure at least one obstacle is on screen or upcoming
+    const activeObstacles = this.obstacles.countActive();
+    if (activeObstacles === 0 || (this.distance - this.lastSpawnDistance > this.spawnInterval)) {
       this.spawnObstacleSet();
       this.lastSpawnDistance = this.distance;
       // Adjust spawn interval based on distance for a smooth challenge curve
