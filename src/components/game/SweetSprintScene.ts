@@ -28,6 +28,7 @@ export class SweetSprintScene extends Phaser.Scene {
 
   private lives: number = 2;
   private isInvulnerable: boolean = false;
+  private startPaused: boolean = true;
 
   private onGameOver: (score: number, cookies: number) => void;
   private onUpdateLives: (lives: number) => void;
@@ -39,6 +40,22 @@ export class SweetSprintScene extends Phaser.Scene {
     super('SweetSprintScene');
     this.onGameOver = onGameOver;
     this.onUpdateLives = onUpdateLives;
+  }
+
+  init(data?: { startPaused?: boolean }) {
+    // Reset core state on every init (start/restart)
+    this.score = 0;
+    this.distance = 0;
+    this.cookiesCollected = 0;
+    this.speed = 8;
+    this.currentLane = 1;
+    this.isJumping = false;
+    this.isSliding = false;
+    this.lives = 2;
+    this.isInvulnerable = false;
+    this.lastObstacleDistance = 0;
+    this.isGenerating = false;
+    this.startPaused = data?.startPaused ?? true;
   }
 
   preload() {
@@ -98,8 +115,10 @@ export class SweetSprintScene extends Phaser.Scene {
     this.physics.add.overlap(this.player, this.obstacles, this.handleCollision, undefined, this);
     this.physics.add.overlap(this.player, this.cookies, this.collectCookie, undefined, this);
 
-    // Start in a paused state if the UI says so (handled by GameContainer)
-    this.scene.pause();
+    // Initial pause check
+    if (this.startPaused) {
+      this.scene.pause();
+    }
   }
 
   private setupInputs() {
@@ -330,15 +349,7 @@ export class SweetSprintScene extends Phaser.Scene {
   }
 
   public restart() {
-    this.scene.restart();
-    this.score = 0;
-    this.distance = 0;
-    this.cookiesCollected = 0;
-    this.speed = 8;
-    this.currentLane = 1;
-    this.isJumping = false;
-    this.isSliding = false;
-    this.lives = 2;
-    this.isInvulnerable = false;
+    // Restart with startPaused: false so it doesn't pause immediately in create()
+    this.scene.restart({ startPaused: false });
   }
 }

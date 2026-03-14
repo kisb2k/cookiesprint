@@ -83,7 +83,8 @@ export default function GameContainer() {
   const goHome = () => {
     const scene = phaserGame.current?.scene.getScene('SweetSprintScene') as SweetSprintScene;
     scene?.restart();
-    scene?.pauseGame(); // Keep it paused on the start screen
+    // Re-pause is handled by SweetSprintScene's create() because restart() defaults to startPaused: true
+    // but in goHome we want to be absolutely sure.
     setGameState('start');
     setScore(0);
     setCookies(0);
