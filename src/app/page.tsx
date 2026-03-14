@@ -1,5 +1,20 @@
 
-import GameContainer from '@/components/game/GameContainer';
+'use client';
+
+import dynamic from 'next/dynamic';
+
+const GameContainer = dynamic(
+  () => import('@/components/game/GameContainer'),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="flex flex-col items-center justify-center">
+        <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-primary font-headline animate-pulse">Loading SweetSprint...</p>
+      </div>
+    )
+  }
+);
 
 export default function Home() {
   return (

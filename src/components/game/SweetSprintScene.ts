@@ -1,5 +1,5 @@
 
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { generateObstacleSequence } from '@/ai/flows/dynamic-obstacle-placement-flow';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
