@@ -1,3 +1,46 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "girl-run",
+      "description": "Girl character running through a city street",
+      "imageUrl": "https://picsum.photos/seed/girl-run/128/128",
+      "imageHint": "girl running"
+    },
+    {
+      "id": "cookie",
+      "description": "Delicious chocolate chip cookie",
+      "imageUrl": "https://picsum.photos/seed/cookie/64/64",
+      "imageHint": "cookie snack"
+    },
+    {
+      "id": "vehicle",
+      "description": "A stylish urban car",
+      "imageUrl": "https://picsum.photos/seed/vehicle/200/100",
+      "imageHint": "car vehicle"
+    },
+    {
+      "id": "pet",
+      "description": "A cute small dog running",
+      "imageUrl": "https://picsum.photos/seed/pet/64/64",
+      "imageHint": "small dog"
+    },
+    {
+      "id": "person",
+      "description": "Pedestrian walking on the street",
+      "imageUrl": "https://picsum.photos/seed/person/64/128",
+      "imageHint": "person walking"
+    },
+    {
+      "id": "water-puddle",
+      "description": "A reflective blue water puddle",
+      "imageUrl": "https://picsum.photos/seed/puddle/128/64",
+      "imageHint": "water puddle"
+    },
+    {
+      "id": "street-texture",
+      "description": "A smooth asphalt street texture with three lanes",
+      "imageUrl": "https://picsum.photos/seed/street/512/512",
+      "imageHint": "asphalt road"
+    }
+  ]
 }
