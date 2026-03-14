@@ -37,16 +37,22 @@
       "imageHint": "water puddle"
     },
     {
-      "id": "street-texture",
-      "description": "Dark asphalt road texture",
-      "imageUrl": "https://picsum.photos/seed/street/512/512",
-      "imageHint": "asphalt texture"
+      "id": "bridge-deck",
+      "description": "Steel bridge deck texture",
+      "imageUrl": "https://picsum.photos/seed/bridge/512/512",
+      "imageHint": "metal bridge"
     },
     {
-      "id": "sidewalk-texture",
-      "description": "Concrete sidewalk texture",
-      "imageUrl": "https://picsum.photos/seed/sidewalk/256/256",
-      "imageHint": "concrete sidewalk"
+      "id": "city-skyline",
+      "description": "Distant city skyline with clouds",
+      "imageUrl": "https://picsum.photos/seed/skyline/800/400",
+      "imageHint": "city skyline"
+    },
+    {
+      "id": "bridge-railing",
+      "description": "Bridge railing and cables",
+      "imageUrl": "https://picsum.photos/seed/railing/256/128",
+      "imageHint": "bridge rail"
     }
   ]
 }

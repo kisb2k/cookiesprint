@@ -5,23 +5,23 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 export class SweetSprintScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
   private currentLane: number = 1;
-  private laneYPositions: number[] = [320, 440, 540];
-  private laneScales: number[] = [0.7, 1.0, 1.3];
+  private laneYPositions: number[] = [300, 420, 540]; // 3 distinct bridge levels
+  private laneScales: number[] = [0.65, 0.9, 1.2];
   
   private score: number = 0;
   private distance: number = 0;
   private cookiesCollected: number = 0;
   private speed: number = 10;
   
-  private road!: Phaser.GameObjects.TileSprite;
-  private backgroundFar!: Phaser.GameObjects.TileSprite;
-  private backgroundNear!: Phaser.GameObjects.TileSprite;
+  private backgroundSky!: Phaser.GameObjects.TileSprite;
+  private bridgeDecks!: Phaser.GameObjects.TileSprite[];
+  private bridgeRailings!: Phaser.GameObjects.TileSprite[];
   
   private obstacles!: Phaser.Physics.Arcade.Group;
   private cookies!: Phaser.Physics.Arcade.Group;
   
   private lastObstacleDistance: number = 0;
-  private segmentLength: number = 1800;
+  private segmentLength: number = 2000;
   private isGenerating: boolean = false;
 
   private lives: number = 2;
@@ -65,24 +65,38 @@ export class SweetSprintScene extends Phaser.Scene {
     this.load.image('pet', assets['pet']);
     this.load.image('person', assets['person']);
     this.load.image('waterPuddle', assets['water-puddle']);
-    this.load.image('street', assets['street-texture']);
-    this.load.image('sidewalk', assets['sidewalk-texture']);
+    this.load.image('deck', assets['bridge-deck']);
+    this.load.image('sky', assets['city-skyline']);
+    this.load.image('railing', assets['bridge-railing']);
   }
 
   create() {
     const { width, height } = this.scale;
 
-    // Environment Layers (Horizontal Parallax)
-    this.backgroundFar = this.add.tileSprite(width / 2, 150, width, 300, 'sidewalk');
-    this.backgroundFar.setTint(0x888888);
-    this.backgroundFar.setScrollFactor(0);
+    // Sky Background (Parallax)
+    this.backgroundSky = this.add.tileSprite(width / 2, 150, width, 400, 'sky');
+    this.backgroundSky.setScrollFactor(0);
+    this.backgroundSky.setAlpha(0.6);
 
-    this.road = this.add.tileSprite(width / 2, height - 150, width, 400, 'street');
-    this.road.setTint(0x444444);
-    this.road.setScrollFactor(0);
+    // Bridge Levels
+    this.bridgeDecks = [];
+    this.bridgeRailings = [];
 
-    this.backgroundNear = this.add.tileSprite(width / 2, height - 40, width, 80, 'sidewalk');
-    this.backgroundNear.setScrollFactor(0);
+    // Create 3 bridge decks corresponding to lanes
+    this.laneYPositions.forEach((y, index) => {
+      const deckWidth = width;
+      const deckHeight = 120 * (this.laneScales[index]);
+      
+      const deck = this.add.tileSprite(width / 2, y + 20, deckWidth, deckHeight, 'deck');
+      deck.setDepth(5 + index * 10);
+      deck.setAlpha(0.9);
+      this.bridgeDecks.push(deck);
+
+      const rail = this.add.tileSprite(width / 2, y - deckHeight / 2, deckWidth, 40, 'railing');
+      rail.setDepth(6 + index * 10);
+      rail.setAlpha(0.8);
+      this.bridgeRailings.push(rail);
+    });
 
     // Groups
     this.obstacles = this.physics.add.group();
@@ -91,15 +105,14 @@ export class SweetSprintScene extends Phaser.Scene {
     // Player
     this.player = this.physics.add.sprite(150, this.laneYPositions[this.currentLane], 'girl');
     this.player.setScale(this.laneScales[this.currentLane]);
-    this.player.setDepth(20);
+    this.player.setDepth(50); // Always in front of the decks
     this.player.setImmovable(true);
 
-    // Initial Idle Animation (Squash and Stretch)
+    // Player Animation (Bobbing)
     this.tweens.add({
       targets: this.player,
-      scaleY: this.laneScales[this.currentLane] * 0.95,
-      scaleX: this.laneScales[this.currentLane] * 1.05,
-      duration: 200,
+      y: this.player.y - 5,
+      duration: 300,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut'
@@ -135,24 +148,29 @@ export class SweetSprintScene extends Phaser.Scene {
   update(time: number, delta: number) {
     if (!this.player.active) return;
 
-    // Move environment horizontally
-    this.road.tilePositionX += this.speed;
-    this.backgroundFar.tilePositionX += this.speed * 0.3;
-    this.backgroundNear.tilePositionX += this.speed * 1.2;
+    // Move environment
+    this.backgroundSky.tilePositionX += this.speed * 0.2;
+    this.bridgeDecks.forEach((deck, i) => {
+      deck.tilePositionX += this.speed * (this.laneScales[i]);
+    });
+    this.bridgeRailings.forEach((rail, i) => {
+      rail.tilePositionX += this.speed * (this.laneScales[i]);
+    });
     
     // Update score/distance
     this.distance += this.speed * 0.05;
     this.score = Math.floor(this.distance) + (this.cookiesCollected * 100);
 
     // Dynamic speed increase
-    if (this.distance > 0 && Math.floor(this.distance) % 2000 === 0) {
-      this.speed += 0.1;
+    if (this.distance > 0 && Math.floor(this.distance) % 2500 === 0) {
+      this.speed += 0.15;
     }
 
     // Move and Clean up Obstacles
     this.obstacles.children.iterate((child: any) => {
       if (child) {
-        child.x -= this.speed;
+        const lane = child.getData('lane');
+        child.x -= this.speed * this.laneScales[lane];
         if (child.x < -200) child.destroy();
       }
       return true;
@@ -161,7 +179,8 @@ export class SweetSprintScene extends Phaser.Scene {
     // Move and Clean up Cookies
     this.cookies.children.iterate((child: any) => {
       if (child) {
-        child.x -= this.speed;
+        const lane = child.getData('lane');
+        child.x -= this.speed * this.laneScales[lane];
         if (child.x < -200) child.destroy();
       }
       return true;
@@ -179,16 +198,20 @@ export class SweetSprintScene extends Phaser.Scene {
 
     this.currentLane = targetLane;
     
-    // Animate lane change with depth scaling
+    // Animate transition between bridge levels
     this.tweens.add({
       targets: this.player,
       y: this.laneYPositions[this.currentLane],
       scale: this.laneScales[this.currentLane],
-      duration: 150,
-      ease: 'Cubic.out',
-      onUpdate: () => {
-        // Update depth based on lane to handle overlapping correctly
-        this.player.setDepth(10 + this.currentLane * 10);
+      duration: 200,
+      ease: 'Back.out',
+      onStart: () => {
+        // Visual cue for switching "decks"
+        this.player.setAlpha(0.8);
+      },
+      onComplete: () => {
+        this.player.setAlpha(1);
+        this.player.setDepth(15 + this.currentLane * 10);
       }
     });
   }
@@ -201,8 +224,8 @@ export class SweetSprintScene extends Phaser.Scene {
     
     this.tweens.add({
       targets: this.player,
-      y: originalY - 180,
-      duration: 400,
+      y: originalY - 150,
+      duration: 350,
       yoyo: true,
       ease: 'Quad.out',
       onComplete: () => {
@@ -218,11 +241,11 @@ export class SweetSprintScene extends Phaser.Scene {
     
     this.tweens.add({
       targets: this.player,
-      scaleY: this.laneScales[this.currentLane] * 0.4,
-      scaleX: this.laneScales[this.currentLane] * 1.3,
-      duration: 300,
+      scaleY: this.laneScales[this.currentLane] * 0.5,
+      scaleX: this.laneScales[this.currentLane] * 1.2,
+      duration: 250,
       yoyo: true,
-      ease: 'Expo.inOut',
+      ease: 'Cubic.inOut',
       onComplete: () => {
         this.player.setData('sliding', false);
         this.player.setScale(this.laneScales[this.currentLane]);
@@ -259,57 +282,46 @@ export class SweetSprintScene extends Phaser.Scene {
       if (obstacle) {
         obstacle.setData('type', obs.type);
         obstacle.setData('lane', laneIndex);
-        obstacle.setDepth(10 + laneIndex * 10);
+        obstacle.setDepth(14 + laneIndex * 10);
         obstacle.setScale(scale);
         
-        // Add "Depth Animation" to obstacles
+        // Depth Animations
         if (obs.type === 'vehicle') {
-          obstacle.setScale(scale * 1.1);
           this.tweens.add({
             targets: obstacle,
-            y: obstacle.y - 5,
-            duration: 100,
+            x: obstacle.x - 20,
+            duration: 500,
             yoyo: true,
             repeat: -1,
             ease: 'Sine.easeInOut'
           });
         } else if (obs.type === 'pet') {
-          obstacle.setScale(scale * 0.8);
           this.tweens.add({
             targets: obstacle,
-            y: obstacle.y - 30,
-            angle: 15,
-            duration: 250,
+            y: obstacle.y - 15,
+            duration: 400,
             yoyo: true,
             repeat: -1,
-            ease: 'Bounce.out'
-          });
-        } else if (obs.type === 'person') {
-          this.tweens.add({
-            targets: obstacle,
-            scaleX: scale * 0.9,
-            duration: 300,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Power1.easeInOut'
+            ease: 'Bounce.inOut'
           });
         }
         
         obstacle.body.updateFromGameObject();
       }
 
-      // Add Cookies with animations
-      if (Math.random() > 0.4) {
-        const cookie = this.cookies.create(spawnX + 150, spawnY - 50, 'cookie');
-        cookie.setScale(scale * 0.7);
-        cookie.setDepth(30);
+      // Cookies on the bridge decks
+      if (Math.random() > 0.3) {
+        const cookie = this.cookies.create(spawnX + 100, spawnY - 40, 'cookie');
+        cookie.setScale(scale * 0.8);
+        cookie.setData('lane', laneIndex);
+        cookie.setDepth(20 + laneIndex * 10);
         cookie.body.updateFromGameObject();
         
         this.tweens.add({
           targets: cookie,
-          y: cookie.y - 20,
+          y: cookie.y - 10,
           angle: 360,
-          duration: 1000,
+          duration: 1500,
           repeat: -1,
           ease: 'Linear'
         });
@@ -320,13 +332,10 @@ export class SweetSprintScene extends Phaser.Scene {
   private handleCollision(player: any, obstacle: any) {
     if (this.isInvulnerable || !this.player.active) return;
 
-    const type = obstacle.getData('type');
     const obstacleLane = obstacle.getData('lane');
-
-    // Lane mismatch check (simple depth check)
     if (obstacleLane !== this.currentLane) return;
-    
-    // Skill checks
+
+    const type = obstacle.getData('type');
     if (type === 'waterPuddle' && this.player.getData('jumping')) return;
     if (type === 'vehicle' && this.player.getData('sliding')) return;
     
@@ -344,21 +353,21 @@ export class SweetSprintScene extends Phaser.Scene {
   private triggerHitEffect() {
     this.isInvulnerable = true;
     const prevSpeed = this.speed;
-    this.speed = Math.max(5, this.speed * 0.5);
+    this.speed = Math.max(4, this.speed * 0.4);
 
     this.tweens.add({
       targets: this.player,
-      alpha: 0.2,
-      duration: 100,
+      alpha: 0.3,
+      duration: 120,
       yoyo: true,
-      repeat: 10,
+      repeat: 8,
       onComplete: () => {
         this.player.alpha = 1;
         this.isInvulnerable = false;
         this.tweens.addCounter({
           from: this.speed,
           to: prevSpeed,
-          duration: 2000,
+          duration: 1500,
           onUpdate: (tween) => {
             this.speed = tween.getValue();
           }
@@ -368,15 +377,18 @@ export class SweetSprintScene extends Phaser.Scene {
   }
 
   private collectCookie(player: any, cookie: any) {
+    const cookieLane = cookie.getData('lane');
+    if (cookieLane !== this.currentLane) return;
+
     this.cookiesCollected++;
     cookie.destroy();
     
     this.tweens.add({
       targets: this.player,
-      scaleX: this.laneScales[this.currentLane] * 1.2,
+      scaleX: this.laneScales[this.currentLane] * 1.3,
       duration: 100,
       yoyo: true,
-      ease: 'Back.out'
+      ease: 'Bounce.out'
     });
   }
 
