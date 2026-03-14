@@ -19,7 +19,7 @@ export class SweetSprintScene extends Phaser.Scene {
   private cookies!: Phaser.Physics.Arcade.Group;
   
   private lastObstacleDistance: number = 0;
-  private segmentLength: number = 2000;
+  private segmentLength: number = 1500;
   private isGenerating: boolean = false;
 
   private lives: number = 2;
@@ -35,8 +35,6 @@ export class SweetSprintScene extends Phaser.Scene {
   private rightKey!: Phaser.Input.Keyboard.Key;
   private wKey!: Phaser.Input.Keyboard.Key;
   private sKey!: Phaser.Input.Keyboard.Key;
-  private aKey!: Phaser.Input.Keyboard.Key;
-  private dKey!: Phaser.Input.Keyboard.Key;
 
   constructor(
     onGameOver: (score: number, cookies: number) => void,
@@ -97,6 +95,8 @@ export class SweetSprintScene extends Phaser.Scene {
 
     // Stats Initialization
     this.onUpdateLives(this.lives);
+    
+    // Initial Spawn
     this.requestNewSegment();
 
     // Collisions
@@ -147,14 +147,14 @@ export class SweetSprintScene extends Phaser.Scene {
     this.player = this.add.container(x, y);
     this.player.setDepth(50);
     
-    const body = this.add.rectangle(0, -30, 20, 40, 0xDC634A);
+    const bodyRect = this.add.rectangle(0, -30, 20, 40, 0xDC634A);
     const head = this.add.arc(0, -60, 10, 0, 360, false, 0xffdbac);
     const lLeg = this.add.rectangle(-5, -10, 8, 20, 0x333333);
     const rLeg = this.add.rectangle(5, -10, 8, 20, 0x333333);
     const lArm = this.add.rectangle(-12, -35, 6, 25, 0xDC634A);
     const rArm = this.add.rectangle(12, -35, 6, 25, 0xDC634A);
     
-    this.player.add([lLeg, rLeg, lArm, rArm, body, head]);
+    this.player.add([lLeg, rLeg, lArm, rArm, bodyRect, head]);
     this.player.setScale(scale);
 
     this.tweens.add({
@@ -202,8 +202,6 @@ export class SweetSprintScene extends Phaser.Scene {
     
     this.wKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
     this.sKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
-    this.aKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
-    this.dKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
 
     this.upKey.on('down', () => this.moveLane(-1));
     this.wKey.on('down', () => this.moveLane(-1));
@@ -214,8 +212,6 @@ export class SweetSprintScene extends Phaser.Scene {
     const startSlide = () => this.slide();
     this.leftKey.on('down', startSlide);
     this.rightKey.on('down', startSlide);
-    this.aKey.on('down', startSlide);
-    this.dKey.on('down', startSlide);
   }
 
   update(time: number, delta: number) {
@@ -258,7 +254,7 @@ export class SweetSprintScene extends Phaser.Scene {
       return true;
     });
 
-    if (this.distance - this.lastObstacleDistance > this.segmentLength && !this.isGenerating) {
+    if (this.distance - this.lastObstacleDistance > (this.segmentLength / 2) && !this.isGenerating) {
       this.requestNewSegment();
     }
   }
@@ -305,6 +301,8 @@ export class SweetSprintScene extends Phaser.Scene {
 
   private async requestNewSegment() {
     this.isGenerating = true;
+    this.lastObstacleDistance = this.distance;
+
     try {
       const data = await generateObstacleSequence({
         playerSpeed: this.speed,
@@ -312,19 +310,35 @@ export class SweetSprintScene extends Phaser.Scene {
         segmentLength: this.segmentLength
       });
 
-      this.lastObstacleDistance = this.distance;
-      this.placeObstacles(data.obstacles);
+      if (data && data.obstacles && data.obstacles.length > 0) {
+        this.placeObstacles(data.obstacles);
+      } else {
+        this.generateFallbackSegment();
+      }
     } catch (e) {
-      // Fallback
+      this.generateFallbackSegment();
     } finally {
       this.isGenerating = false;
     }
   }
 
+  private generateFallbackSegment() {
+    const fallbackObstacles = [];
+    const types: any[] = ['vehicle', 'pet', 'person', 'waterPuddle'];
+    for (let i = 0; i < 5; i++) {
+      fallbackObstacles.push({
+        type: types[Math.floor(Math.random() * types.length)],
+        lane: Math.floor(Math.random() * 3).toString(),
+        distanceFromStart: i * 300 + Math.random() * 100
+      });
+    }
+    this.placeObstacles(fallbackObstacles);
+  }
+
   private placeObstacles(obstacleData: any[]) {
     obstacleData.forEach(obs => {
       const laneIndex = parseInt(obs.lane);
-      const spawnX = this.scale.width + obs.distanceFromStart + 200;
+      const spawnX = this.scale.width + obs.distanceFromStart + 300;
       const spawnY = this.laneYPositions[laneIndex] + 20;
       
       const container = this.add.container(spawnX, spawnY);
@@ -353,11 +367,13 @@ export class SweetSprintScene extends Phaser.Scene {
       }
       
       container.add(g);
-      this.obstacles.add(container);
       container.setData('lane', laneIndex);
       container.setData('type', obs.type);
       container.setDepth(14 + laneIndex * 10);
       container.setScale(this.laneScales[laneIndex]);
+      
+      this.physics.add.existing(container);
+      this.obstacles.add(container);
       
       const body = container.body as Phaser.Physics.Arcade.Body;
       body.setSize(60, 60);
@@ -379,10 +395,12 @@ export class SweetSprintScene extends Phaser.Scene {
     g.fillCircle(5, 5, 3);
     
     container.add(g);
-    this.cookies.add(container);
     container.setData('lane', lane);
     container.setDepth(20 + lane * 10);
     container.setScale(this.laneScales[lane]);
+    
+    this.physics.add.existing(container);
+    this.cookies.add(container);
     
     const body = container.body as Phaser.Physics.Arcade.Body;
     body.setSize(30, 30);
@@ -398,7 +416,7 @@ export class SweetSprintScene extends Phaser.Scene {
     const type = obstacle.getData('type');
     const isSliding = this.player.getData('sliding');
     
-    // Some obstacles can be escaped by sliding
+    // Pets and puddles can be dodged by sliding
     if (isSliding && (type === 'pet' || type === 'waterPuddle')) return;
     
     obstacle.destroy();
