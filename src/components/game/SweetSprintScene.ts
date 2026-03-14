@@ -13,7 +13,7 @@ export class SweetSprintScene extends Phaser.Scene {
   private speed: number = 10;
   
   private clouds!: Phaser.GameObjects.Group;
-  private bridgeDecks!: Phaser.GameObjects.Graphics[];
+  private bridgeDecks: Phaser.GameObjects.TileSprite[] = [];
   
   private obstacles!: Phaser.Physics.Arcade.Group;
   private cookies!: Phaser.Physics.Arcade.Group;
@@ -55,6 +55,7 @@ export class SweetSprintScene extends Phaser.Scene {
     this.lastObstacleDistance = 0;
     this.isGenerating = false;
     this.isGameActive = false;
+    this.bridgeDecks = [];
   }
 
   create() {
@@ -71,12 +72,14 @@ export class SweetSprintScene extends Phaser.Scene {
       this.createCloud(Phaser.Math.Between(0, width), Phaser.Math.Between(50, 200));
     }
 
-    // 3. Bridge Levels
-    this.bridgeDecks = [];
+    // 3. Create Bridge Deck Textures & TileSprites
+    this.createBridgeTextures();
     this.laneYPositions.forEach((y, index) => {
-      const g = this.add.graphics();
-      this.drawBridgeDeck(g, y, index);
-      this.bridgeDecks.push(g);
+      const deckWidth = width;
+      const deckHeight = 60 * this.laneScales[index];
+      const tileSprite = this.add.tileSprite(width / 2, y + deckHeight / 2, width, deckHeight, `bridge_deck_${index}`);
+      tileSprite.setDepth(5 + index * 10);
+      this.bridgeDecks.push(tileSprite);
     });
 
     // 4. Groups
@@ -98,23 +101,30 @@ export class SweetSprintScene extends Phaser.Scene {
     this.physics.add.overlap(this.player, this.cookies, this.collectCookie, undefined, this);
   }
 
-  private drawBridgeDeck(g: Phaser.Graphics, y: number, index: number) {
-    const width = this.scale.width;
-    const depth = 60 * this.laneScales[index];
-    
-    g.clear();
-    g.fillStyle(0x333333, 1);
-    g.fillRect(0, y, width, depth);
-    
-    g.lineStyle(4 * this.laneScales[index], 0xdddddd, 1);
-    g.lineBetween(0, y, width, y);
-    g.lineBetween(0, y + depth, width, y + depth);
-    
-    g.lineStyle(2, 0xffffff, 0.3);
-    for (let i = 0; i < width; i += 100) {
-      g.lineBetween(i, y, i, y + depth);
-    }
-    g.setDepth(5 + index * 10);
+  private createBridgeTextures() {
+    // Generate 3 textures, one for each level's perspective
+    this.laneScales.forEach((scale, index) => {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      const width = 200;
+      const height = 60 * scale;
+      
+      // Background
+      g.fillStyle(0x333333, 1);
+      g.fillRect(0, 0, width, height);
+      
+      // Railings / Edges
+      g.lineStyle(4 * scale, 0xdddddd, 1);
+      g.lineBetween(0, 0, width, 0);
+      g.lineBetween(0, height, width, height);
+      
+      // Detail lines
+      g.lineStyle(2 * scale, 0xffffff, 0.2);
+      for (let i = 0; i < width; i += 50) {
+        g.lineBetween(i, 0, i, height);
+      }
+
+      g.generateTexture(`bridge_deck_${index}`, width, height);
+    });
   }
 
   private createCloud(x: number, y: number) {
@@ -202,19 +212,29 @@ export class SweetSprintScene extends Phaser.Scene {
   update(time: number, delta: number) {
     if (!this.isGameActive || !this.player.active) return;
 
+    // 1. Scroll Clouds
     this.clouds.children.iterate((cloud: any) => {
       cloud.x -= cloud.getData('speed') * delta * 0.1;
       if (cloud.x < -100) cloud.x = this.scale.width + 100;
       return true;
     });
     
+    // 2. Continuous Running Illusion: Scroll Bridge Decks
+    const scrollBase = this.speed * 0.5 * delta * 0.1;
+    this.bridgeDecks.forEach((deck, index) => {
+      deck.tilePositionX += scrollBase * this.laneScales[index];
+    });
+
+    // 3. Distance & Score
     this.distance += this.speed * 0.05;
     this.score = Math.floor(this.distance) + (this.cookiesCollected * 100);
 
+    // Speed increases slowly
     if (this.distance > 0 && Math.floor(this.distance) % 2500 === 0) {
       this.speed += 0.2;
     }
 
+    // 4. Move Obstacles & Cookies
     const moveFactor = this.speed * 0.06 * delta;
     this.obstacles.children.iterate((child: any) => {
       if (child) {
@@ -234,6 +254,7 @@ export class SweetSprintScene extends Phaser.Scene {
       return true;
     });
 
+    // 5. Generate New Segments
     if (this.distance - this.lastObstacleDistance > this.segmentLength && !this.isGenerating) {
       this.requestNewSegment();
     }
