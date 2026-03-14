@@ -3,9 +3,9 @@ import * as Phaser from 'phaser';
 export class SweetSprintScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Container;
   private currentLane: number = 1;
-  private laneYPositions: number[] = [320, 440, 560];
-  private laneScales: number[] = [0.75, 1.0, 1.25];
-  private laneSpeedMultipliers: number[] = [0.6, 1.0, 1.5];
+  private laneYPositions: number[] = [280, 420, 560];
+  private laneScales: number[] = [0.7, 1.0, 1.4];
+  private laneSpeedMultipliers: number[] = [0.6, 1.0, 1.6];
   
   private score: number = 0;
   private distance: number = 0;
@@ -21,7 +21,7 @@ export class SweetSprintScene extends Phaser.Scene {
   private particles!: Phaser.GameObjects.Particles.ParticleEmitter;
   
   private lastSpawnDistance: number = 0;
-  private spawnInterval: number = 300; 
+  private spawnInterval: number = 250; 
 
   private lives: number = 2;
   private isInvulnerable: boolean = false;
@@ -79,10 +79,11 @@ export class SweetSprintScene extends Phaser.Scene {
 
     this.createBridgeTextures();
     this.laneYPositions.forEach((y, index) => {
-      const deckHeight = 80 * this.laneScales[index];
+      // The deck height is now explicitly matched to character size (approx 90px base * scale)
+      const deckHeight = 90 * this.laneScales[index];
       const tileSprite = this.add.tileSprite(width / 2, y, width, deckHeight, `bridge_deck_${index}`);
       tileSprite.setDepth(5 + index * 10);
-      tileSprite.setOrigin(0.5, 0);
+      tileSprite.setOrigin(0.5, 0.2); // Align so character runs "on" the deck
       this.bridgeDecks.push(tileSprite);
     });
 
@@ -108,6 +109,7 @@ export class SweetSprintScene extends Phaser.Scene {
     this.onUpdateScore(0);
     this.onUpdateCookies(0);
 
+    // Initial spawn to guarantee an obstacle
     this.spawnObstacleSet();
 
     this.physics.add.overlap(this.player, this.obstacles, this.handleCollision, undefined, this);
@@ -125,7 +127,7 @@ export class SweetSprintScene extends Phaser.Scene {
       g.lineBetween(i + 20, 0, i + 40, 20);
     }
     g.generateTexture('distant_bridge', 400, 100);
-    this.distantBridge = this.add.tileSprite(400, 250, 800, 100, 'distant_bridge');
+    this.distantBridge = this.add.tileSprite(400, 220, 800, 100, 'distant_bridge');
     this.distantBridge.setAlpha(0.4);
   }
 
@@ -138,17 +140,24 @@ export class SweetSprintScene extends Phaser.Scene {
     this.laneScales.forEach((scale, index) => {
       const g = this.make.graphics({ x: 0, y: 0, add: false });
       const width = 200;
-      const height = 80 * scale;
+      const height = 90 * scale; // Deck width (vertical height) adjusted to character
       g.fillStyle(0x334155, 1);
       g.fillRect(0, 0, width, height);
+      
+      // Top Railing / Edge
       g.fillStyle(0x475569, 1);
-      g.fillRect(0, 0, width, 6 * scale);
+      g.fillRect(0, 0, width, 8 * scale);
+      
+      // Bottom Edge
       g.fillStyle(0x1e293b, 1);
-      g.fillRect(0, height - (4 * scale), width, 4 * scale);
+      g.fillRect(0, height - (6 * scale), width, 6 * scale);
+      
+      // Vertical supports for detail
       g.lineStyle(2 * scale, 0x64748b, 0.4);
-      for (let i = 0; i < width; i += 40) {
+      for (let i = 0; i < width; i += 50) {
         g.lineBetween(i, 0, i, height);
       }
+      
       g.generateTexture(`bridge_deck_${index}`, width, height);
     });
   }
@@ -172,6 +181,8 @@ export class SweetSprintScene extends Phaser.Scene {
     const skinColor = 0xffdbac;
     const shirtColor = 0x0ea5e9;
     const pantsColor = 0x334155;
+    
+    // Character is approx 80-90px high at scale 1.0
     const head = this.add.arc(0, -65, 12, 0, 360, false, skinColor);
     const torso = this.add.rectangle(0, -35, 24, 35, shirtColor);
     const lArm = this.add.rectangle(-15, -40, 8, 22, shirtColor);
@@ -247,7 +258,6 @@ export class SweetSprintScene extends Phaser.Scene {
     this.obstacles.children.iterate((child: any) => {
       if (child) {
         const lane = child.getData('lane');
-        // Move obstacles based on lane speed multiplier to match ground movement
         child.x -= (this.baseSpeed * 0.05 * delta) * this.laneSpeedMultipliers[lane];
         if (child.x < -300) child.destroy();
       }
@@ -268,8 +278,7 @@ export class SweetSprintScene extends Phaser.Scene {
     if (activeObstacles === 0 || (this.distance - this.lastSpawnDistance > this.spawnInterval)) {
       this.spawnObstacleSet();
       this.lastSpawnDistance = this.distance;
-      // Adjust spawn interval based on distance for a smooth challenge curve
-      this.spawnInterval = Math.max(150, 300 - (this.distance / 100));
+      this.spawnInterval = Math.max(120, 250 - (this.distance / 150));
     }
   }
 
@@ -327,7 +336,7 @@ export class SweetSprintScene extends Phaser.Scene {
   }
 
   private spawnObstacleSet() {
-    const obstacleCount = Math.min(3, 1 + Math.floor(this.distance / 2000));
+    const obstacleCount = Math.min(3, 1 + Math.floor(this.distance / 1500));
     const usedLanes = new Set<number>();
 
     for (let i = 0; i < obstacleCount; i++) {
@@ -335,19 +344,19 @@ export class SweetSprintScene extends Phaser.Scene {
       if (usedLanes.size < 2) {
         usedLanes.add(lane);
         const type = ['vehicle', 'pet', 'person', 'waterPuddle'][Phaser.Math.Between(0, 3)];
-        this.createObstacle(lane, type, 900 + (i * 250));
+        this.createObstacle(lane, type, 900 + (i * 300));
       }
     }
 
-    const cookieCount = Phaser.Math.Between(1, 2);
+    const cookieCount = Phaser.Math.Between(1, 3);
     for (let j = 0; j < cookieCount; j++) {
       let cookieLane = Phaser.Math.Between(0, 2);
-      this.createCookie(900 + Phaser.Math.Between(100, 600), this.laneYPositions[cookieLane] - 50, cookieLane);
+      this.createCookie(900 + Phaser.Math.Between(100, 700), this.laneYPositions[cookieLane] - 40, cookieLane);
     }
   }
 
   private createObstacle(laneIdx: number, type: string, x: number) {
-    const spawnY = this.laneYPositions[laneIdx] + 15;
+    const spawnY = this.laneYPositions[laneIdx] + 10;
     const container = this.add.container(x, spawnY);
     const g = this.add.graphics();
     
