@@ -3,9 +3,9 @@ import * as Phaser from 'phaser';
 export class SweetSprintScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Container;
   private currentLane: number = 1;
-  private laneYPositions: number[] = [280, 420, 560];
-  private laneScales: number[] = [0.6, 1.0, 1.6]; // Increased bottom scale for better perspective
-  private laneSpeedMultipliers: number[] = [0.6, 1.0, 1.8]; // Bottom is significantly faster
+  private laneYPositions: number[] = [280, 410, 540];
+  private laneScales: number[] = [0.6, 1.0, 1.6];
+  private laneSpeedMultipliers: number[] = [0.6, 1.0, 1.8];
   
   private score: number = 0;
   private distance: number = 0;
@@ -74,16 +74,15 @@ export class SweetSprintScene extends Phaser.Scene {
 
     this.clouds = this.add.group();
     for (let i = 0; i < 8; i++) {
-      this.createCloud(Phaser.Math.Between(0, width), Phaser.Math.Between(30, 150));
+      this.createCloud(Phaser.Math.Between(0, width), Phaser.Math.Between(30, 120));
     }
 
     this.createBridgeTextures();
     this.laneYPositions.forEach((y, index) => {
-      // Significantly wider decks for lower lanes to match character size and perspective
-      const deckHeight = 140 * this.laneScales[index]; 
+      const deckHeight = Math.round(160 * this.laneScales[index]); 
       const tileSprite = this.add.tileSprite(width / 2, y, width, deckHeight, `bridge_deck_${index}`);
-      tileSprite.setDepth(5 + index * 10);
-      tileSprite.setOrigin(0.5, 0.4); // Adjust origin so the character runs centered on the wider deck
+      tileSprite.setDepth(10 + index * 10);
+      tileSprite.setOrigin(0.5, 0.4);
       this.bridgeDecks.push(tileSprite);
     });
 
@@ -94,8 +93,7 @@ export class SweetSprintScene extends Phaser.Scene {
       lifespan: 400,
       gravityY: -50,
       frequency: 50,
-      blendMode: 'ADD',
-      follow: this.player
+      blendMode: 'ADD'
     });
     this.particles.stop();
 
@@ -126,8 +124,9 @@ export class SweetSprintScene extends Phaser.Scene {
       g.lineBetween(i + 20, 0, i + 40, 20);
     }
     g.generateTexture('distant_bridge', 400, 100);
-    this.distantBridge = this.add.tileSprite(400, 220, 800, 100, 'distant_bridge');
+    this.distantBridge = this.add.tileSprite(400, 180, 800, 100, 'distant_bridge');
     this.distantBridge.setAlpha(0.4);
+    this.distantBridge.setDepth(5);
   }
 
   private createBridgeTextures() {
@@ -138,32 +137,27 @@ export class SweetSprintScene extends Phaser.Scene {
 
     this.laneScales.forEach((scale, index) => {
       const g = this.make.graphics({ x: 0, y: 0, add: false });
-      const width = 200;
-      const height = 140 * scale; // Wider base height for bridge decks
+      const textureWidth = 200;
+      const textureHeight = Math.round(160 * scale);
       
-      // Deck Body
       g.fillStyle(0x334155, 1);
-      g.fillRect(0, 0, width, height);
+      g.fillRect(0, 0, textureWidth, textureHeight);
       
-      // Top Railing / Edge
       g.fillStyle(0x475569, 1);
-      g.fillRect(0, 0, width, 12 * scale);
+      g.fillRect(0, 0, textureWidth, Math.round(12 * scale));
       
-      // Mid-deck detail (road lines)
       g.fillStyle(0x475569, 0.5);
-      g.fillRect(0, height / 2 - (2 * scale), width, 4 * scale);
+      g.fillRect(0, textureHeight / 2 - Math.round(2 * scale), textureWidth, Math.round(4 * scale));
       
-      // Bottom Edge
       g.fillStyle(0x1e293b, 1);
-      g.fillRect(0, height - (10 * scale), width, 10 * scale);
+      g.fillRect(0, textureHeight - Math.round(10 * scale), textureWidth, Math.round(10 * scale));
       
-      // Vertical supports
-      g.lineStyle(3 * scale, 0x64748b, 0.4);
-      for (let i = 0; i < width; i += 50) {
-        g.lineBetween(i, 0, i, height);
+      g.lineStyle(Math.round(3 * scale), 0x64748b, 0.4);
+      for (let i = 0; i < textureWidth; i += 50) {
+        g.lineBetween(i, 0, i, textureHeight);
       }
       
-      g.generateTexture(`bridge_deck_${index}`, width, height);
+      g.generateTexture(`bridge_deck_${index}`, textureWidth, textureHeight);
     });
   }
 
@@ -177,12 +171,13 @@ export class SweetSprintScene extends Phaser.Scene {
     g.fillCircle(40, 0, 25);
     container.add(g);
     container.setData('speed', Phaser.Math.Between(2, 6) * 0.05);
+    container.setDepth(2);
     this.clouds.add(container);
   }
 
   private createPlayer() {
     this.player = this.add.container(150, this.laneYPositions[this.currentLane]);
-    this.player.setDepth(50);
+    this.player.setDepth(15 + this.currentLane * 10);
     const skinColor = 0xffdbac;
     const shirtColor = 0x0ea5e9;
     const pantsColor = 0x334155;
@@ -235,6 +230,7 @@ export class SweetSprintScene extends Phaser.Scene {
     }
 
     this.particles.start();
+    this.particles.follow = this.player;
 
     this.distantBridge.tilePositionX += this.baseSpeed * 0.1 * delta * 0.05;
     this.clouds.children.iterate((cloud: any) => {
@@ -253,7 +249,7 @@ export class SweetSprintScene extends Phaser.Scene {
       this.onUpdateScore(this.score);
     }
 
-    if (this.score > 0 && this.score % 1000 === 0) {
+    if (this.score > 0 && this.score % 500 === 0) {
       this.baseSpeed += 0.01;
     }
 
@@ -279,7 +275,7 @@ export class SweetSprintScene extends Phaser.Scene {
     if (activeObstacles === 0 || (this.distance - this.lastSpawnDistance > this.spawnInterval)) {
       this.spawnObstacleSet();
       this.lastSpawnDistance = this.distance;
-      this.spawnInterval = Math.max(120, 250 - (this.distance / 150));
+      this.spawnInterval = Math.max(120, 280 - (this.distance / 150));
     }
   }
 
@@ -293,8 +289,8 @@ export class SweetSprintScene extends Phaser.Scene {
       targets: this.player,
       y: this.laneYPositions[this.currentLane],
       scale: this.laneScales[this.currentLane],
-      duration: 180,
-      ease: 'Back.out',
+      duration: 200,
+      ease: 'Quad.out',
       onComplete: () => {
         this.player.setDepth(15 + this.currentLane * 10);
       }
@@ -337,22 +333,22 @@ export class SweetSprintScene extends Phaser.Scene {
   }
 
   private spawnObstacleSet() {
-    const obstacleCount = Math.min(3, 1 + Math.floor(this.distance / 1500));
+    const obstacleCount = Math.min(3, 1 + Math.floor(this.distance / 1200));
     const usedLanes = new Set<number>();
 
     for (let i = 0; i < obstacleCount; i++) {
       let lane = Phaser.Math.Between(0, 2);
-      if (usedLanes.size < 2) {
+      if (!usedLanes.has(lane)) {
         usedLanes.add(lane);
         const type = ['vehicle', 'pet', 'person', 'waterPuddle'][Phaser.Math.Between(0, 3)];
-        this.createObstacle(lane, type, 900 + (i * 300));
+        this.createObstacle(lane, type, 900 + (i * 350));
       }
     }
 
-    const cookieCount = Phaser.Math.Between(1, 3);
+    const cookieCount = Phaser.Math.Between(1, 2);
     for (let j = 0; j < cookieCount; j++) {
       let cookieLane = Phaser.Math.Between(0, 2);
-      this.createCookie(900 + Phaser.Math.Between(100, 700), this.laneYPositions[cookieLane] - 40, cookieLane);
+      this.createCookie(900 + Phaser.Math.Between(100, 600), this.laneYPositions[cookieLane] - 40, cookieLane);
     }
   }
 
