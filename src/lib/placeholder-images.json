@@ -38,9 +38,15 @@
     },
     {
       "id": "street-texture",
-      "description": "A smooth asphalt street texture with three lanes",
+      "description": "Dark asphalt road texture",
       "imageUrl": "https://picsum.photos/seed/street/512/512",
-      "imageHint": "asphalt road"
+      "imageHint": "asphalt texture"
+    },
+    {
+      "id": "sidewalk-texture",
+      "description": "Concrete sidewalk texture",
+      "imageUrl": "https://picsum.photos/seed/sidewalk/256/256",
+      "imageHint": "concrete sidewalk"
     }
   ]
 }
