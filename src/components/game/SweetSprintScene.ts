@@ -1,10 +1,9 @@
-
 import * as Phaser from 'phaser';
 import { generateObstacleSequence } from '@/ai/flows/dynamic-obstacle-placement-flow';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export class SweetSprintScene extends Phaser.Scene {
-  private player!: Phaser.GameObjects.Sprite;
+  private player!: Phaser.Physics.Arcade.Sprite;
   private currentLane: number = 1;
   private laneWidth: number = 160;
   private isJumping: boolean = false;
@@ -20,8 +19,8 @@ export class SweetSprintScene extends Phaser.Scene {
   private rightSidewalk!: Phaser.GameObjects.TileSprite;
   private roadLines!: Phaser.GameObjects.TileSprite;
   
-  private obstacles: Phaser.GameObjects.Group | null = null;
-  private cookies: Phaser.GameObjects.Group | null = null;
+  private obstacles!: Phaser.Physics.Arcade.Group;
+  private cookies!: Phaser.Physics.Arcade.Group;
   
   private lastObstacleDistance: number = 0;
   private segmentLength: number = 1500;
@@ -75,29 +74,32 @@ export class SweetSprintScene extends Phaser.Scene {
     graphics.destroy();
 
     this.roadLines = this.add.tileSprite(width / 2, height / 2, width - 160, height, 'roadLine');
-    this.roadLines.setTilePosition(0, 0);
-
-    // Player
-    this.player = this.add.sprite(this.getLaneX(this.currentLane), height - 150, 'girl');
-    this.player.setScale(0.8);
-    this.player.setDepth(10);
 
     // Groups
     this.obstacles = this.physics.add.group();
     this.cookies = this.physics.add.group();
 
+    // Player
+    this.player = this.physics.add.sprite(this.getLaneX(this.currentLane), height - 150, 'girl');
+    this.player.setScale(0.8);
+    this.player.setDepth(10);
+    this.player.setImmovable(true);
+
     // Inputs
     this.setupInputs();
-
-    // Initial AI Obstacles
-    this.requestNewSegment();
 
     // Stats
     this.onUpdateLives(this.lives);
 
-    // Collisions
-    this.physics.add.overlap(this.player, this.obstacles, (p, o) => this.handleCollision(o as Phaser.GameObjects.Sprite));
-    this.physics.add.overlap(this.player, this.cookies, (p, c) => this.collectCookie(c as Phaser.GameObjects.Sprite));
+    // Initial AI Obstacles
+    this.requestNewSegment();
+
+    // Collision Handlers using Phaser Physics
+    this.physics.add.overlap(this.player, this.obstacles, this.handleCollision, undefined, this);
+    this.physics.add.overlap(this.player, this.cookies, this.collectCookie, undefined, this);
+
+    // Start in a paused state if the UI says so (handled by GameContainer)
+    this.scene.pause();
   }
 
   private setupInputs() {
@@ -109,21 +111,6 @@ export class SweetSprintScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-D', () => this.moveLane(1));
     this.input.keyboard?.on('keydown-W', () => this.jump());
     this.input.keyboard?.on('keydown-S', () => this.slide());
-
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      const { x, y } = pointer;
-      this.input.once('pointerup', (upPointer: Phaser.Input.Pointer) => {
-        const dx = upPointer.x - x;
-        const dy = upPointer.y - y;
-        if (Math.abs(dx) > Math.abs(dy)) {
-          if (dx > 50) this.moveLane(1);
-          else if (dx < -50) this.moveLane(-1);
-        } else {
-          if (dy < -50) this.jump();
-          else if (dy > 50) this.slide();
-        }
-      });
-    });
   }
 
   update(time: number, delta: number) {
@@ -141,12 +128,12 @@ export class SweetSprintScene extends Phaser.Scene {
 
     // Dynamic speed increase
     if (this.distance > 0 && Math.floor(this.distance) % 1000 === 0) {
-      this.speed += 0.1;
+      this.speed += 0.05;
     }
 
     // Move and Clean up
-    this.updateGroup(this.obstacles);
-    this.updateGroup(this.cookies);
+    this.updatePhysicsGroup(this.obstacles);
+    this.updatePhysicsGroup(this.cookies);
 
     // Check if we need more obstacles
     if (this.distance - this.lastObstacleDistance > this.segmentLength && !this.isGenerating) {
@@ -154,8 +141,8 @@ export class SweetSprintScene extends Phaser.Scene {
     }
   }
 
-  private updateGroup(group: Phaser.GameObjects.Group | null) {
-    group?.children.iterate((child: any) => {
+  private updatePhysicsGroup(group: Phaser.Physics.Arcade.Group) {
+    group.children.iterate((child: any) => {
       if (child) {
         child.y += this.speed;
         if (child.y > this.scale.height + 200) {
@@ -232,6 +219,7 @@ export class SweetSprintScene extends Phaser.Scene {
       this.lastObstacleDistance = this.distance;
       this.placeObstacles(data.obstacles);
     } catch (e) {
+      // Fallback obstacles if AI fails
       this.placeObstacles([
         { type: 'waterPuddle', lane: '1', distanceFromStart: 300 }
       ]);
@@ -245,33 +233,35 @@ export class SweetSprintScene extends Phaser.Scene {
       const spawnY = -obs.distanceFromStart - 200;
       const x = this.getLaneX(parseInt(obs.lane));
       
-      const obstacle = this.obstacles?.create(x, spawnY, obs.type);
+      const obstacle = this.obstacles.create(x, spawnY, obs.type);
       if (obstacle) {
         obstacle.setData('type', obs.type);
         obstacle.setDepth(5);
         if (obs.type === 'vehicle') obstacle.setScale(0.7);
         else if (obs.type === 'pet') obstacle.setScale(0.6);
         else obstacle.setScale(0.8);
+        
+        // Refresh body for physics scaling
+        obstacle.body.updateFromGameObject();
       }
 
-      if (Math.random() > 0.3) {
-        const cookie = this.cookies?.create(x, spawnY + 200, 'cookie');
-        cookie?.setScale(0.6);
-        cookie?.setDepth(4);
+      if (Math.random() > 0.4) {
+        const cookie = this.cookies.create(x, spawnY + 200, 'cookie');
+        cookie.setScale(0.6);
+        cookie.setDepth(4);
+        cookie.body.updateFromGameObject();
       }
     });
   }
 
-  private handleCollision(obstacle: Phaser.GameObjects.Sprite) {
+  private handleCollision(player: any, obstacle: any) {
     if (this.isInvulnerable || !this.player.active) return;
 
     const type = obstacle.getData('type');
     
-    // Skill checks
+    // Skill checks for jumping over puddles or sliding under vehicles (if logic allows)
     if (type === 'waterPuddle' && this.isJumping) return;
-    if (type === 'vehicle' && this.isSliding) return;
-    if (type === 'pet' && this.isJumping) return;
-
+    
     // We hit an obstacle
     obstacle.destroy();
     this.lives--;
@@ -287,9 +277,8 @@ export class SweetSprintScene extends Phaser.Scene {
   private triggerHitEffect() {
     this.isInvulnerable = true;
     const prevSpeed = this.speed;
-    this.speed = Math.max(4, this.speed * 0.4); // Significant slow down
+    this.speed = Math.max(4, this.speed * 0.4); // Slow down
 
-    // Flash effect for invulnerability
     this.tweens.add({
       targets: this.player,
       alpha: 0.2,
@@ -312,10 +301,11 @@ export class SweetSprintScene extends Phaser.Scene {
     });
   }
 
-  private collectCookie(cookie: Phaser.GameObjects.Sprite) {
+  private collectCookie(player: any, cookie: any) {
     this.cookiesCollected++;
     cookie.destroy();
     
+    // Small feedback
     this.tweens.add({
       targets: this.player,
       alpha: 0.7,
@@ -329,6 +319,14 @@ export class SweetSprintScene extends Phaser.Scene {
     this.player.setTint(0xff0000);
     this.onUpdateLives(0);
     this.onGameOver(this.score, this.cookiesCollected);
+  }
+
+  public pauseGame() {
+    this.scene.pause();
+  }
+
+  public resumeGame() {
+    this.scene.resume();
   }
 
   public restart() {
