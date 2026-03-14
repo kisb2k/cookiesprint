@@ -4,8 +4,8 @@ export class SweetSprintScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Container;
   private currentLane: number = 1;
   private laneYPositions: number[] = [280, 420, 560];
-  private laneScales: number[] = [0.7, 1.0, 1.4];
-  private laneSpeedMultipliers: number[] = [0.6, 1.0, 1.6];
+  private laneScales: number[] = [0.6, 1.0, 1.6]; // Increased bottom scale for better perspective
+  private laneSpeedMultipliers: number[] = [0.6, 1.0, 1.8]; // Bottom is significantly faster
   
   private score: number = 0;
   private distance: number = 0;
@@ -79,11 +79,11 @@ export class SweetSprintScene extends Phaser.Scene {
 
     this.createBridgeTextures();
     this.laneYPositions.forEach((y, index) => {
-      // The deck height is now explicitly matched to character size (approx 90px base * scale)
-      const deckHeight = 90 * this.laneScales[index];
+      // Significantly wider decks for lower lanes to match character size and perspective
+      const deckHeight = 140 * this.laneScales[index]; 
       const tileSprite = this.add.tileSprite(width / 2, y, width, deckHeight, `bridge_deck_${index}`);
       tileSprite.setDepth(5 + index * 10);
-      tileSprite.setOrigin(0.5, 0.2); // Align so character runs "on" the deck
+      tileSprite.setOrigin(0.5, 0.4); // Adjust origin so the character runs centered on the wider deck
       this.bridgeDecks.push(tileSprite);
     });
 
@@ -109,7 +109,6 @@ export class SweetSprintScene extends Phaser.Scene {
     this.onUpdateScore(0);
     this.onUpdateCookies(0);
 
-    // Initial spawn to guarantee an obstacle
     this.spawnObstacleSet();
 
     this.physics.add.overlap(this.player, this.obstacles, this.handleCollision, undefined, this);
@@ -140,20 +139,26 @@ export class SweetSprintScene extends Phaser.Scene {
     this.laneScales.forEach((scale, index) => {
       const g = this.make.graphics({ x: 0, y: 0, add: false });
       const width = 200;
-      const height = 90 * scale; // Deck width (vertical height) adjusted to character
+      const height = 140 * scale; // Wider base height for bridge decks
+      
+      // Deck Body
       g.fillStyle(0x334155, 1);
       g.fillRect(0, 0, width, height);
       
       // Top Railing / Edge
       g.fillStyle(0x475569, 1);
-      g.fillRect(0, 0, width, 8 * scale);
+      g.fillRect(0, 0, width, 12 * scale);
+      
+      // Mid-deck detail (road lines)
+      g.fillStyle(0x475569, 0.5);
+      g.fillRect(0, height / 2 - (2 * scale), width, 4 * scale);
       
       // Bottom Edge
       g.fillStyle(0x1e293b, 1);
-      g.fillRect(0, height - (6 * scale), width, 6 * scale);
+      g.fillRect(0, height - (10 * scale), width, 10 * scale);
       
-      // Vertical supports for detail
-      g.lineStyle(2 * scale, 0x64748b, 0.4);
+      // Vertical supports
+      g.lineStyle(3 * scale, 0x64748b, 0.4);
       for (let i = 0; i < width; i += 50) {
         g.lineBetween(i, 0, i, height);
       }
@@ -182,7 +187,6 @@ export class SweetSprintScene extends Phaser.Scene {
     const shirtColor = 0x0ea5e9;
     const pantsColor = 0x334155;
     
-    // Character is approx 80-90px high at scale 1.0
     const head = this.add.arc(0, -65, 12, 0, 360, false, skinColor);
     const torso = this.add.rectangle(0, -35, 24, 35, shirtColor);
     const lArm = this.add.rectangle(-15, -40, 8, 22, shirtColor);
@@ -243,14 +247,12 @@ export class SweetSprintScene extends Phaser.Scene {
       deck.tilePositionX += this.baseSpeed * 0.05 * delta * this.laneSpeedMultipliers[index];
     });
 
-    // Distance is dependent on the speed of the current level
     this.distance += (this.baseSpeed * 0.005 * delta * this.laneSpeedMultipliers[this.currentLane]);
     if (Math.floor(this.distance) !== this.score) {
       this.score = Math.floor(this.distance);
       this.onUpdateScore(this.score);
     }
 
-    // Speed increases slowly over distance
     if (this.score > 0 && this.score % 1000 === 0) {
       this.baseSpeed += 0.01;
     }
@@ -273,7 +275,6 @@ export class SweetSprintScene extends Phaser.Scene {
       return true;
     });
 
-    // Ensure at least one obstacle is on screen or upcoming
     const activeObstacles = this.obstacles.countActive();
     if (activeObstacles === 0 || (this.distance - this.lastSpawnDistance > this.spawnInterval)) {
       this.spawnObstacleSet();
@@ -436,9 +437,7 @@ export class SweetSprintScene extends Phaser.Scene {
     if (obstacleLane !== this.currentLane) return;
 
     const type = obstacle.getData('type');
-    // Sliding dodges small pets and puddles
     if (this.player.getData('sliding') && (type === 'pet' || type === 'waterPuddle')) return;
-    // Jumping dodges ground obstacles
     if (this.player.getData('jumping') && (type === 'waterPuddle' || type === 'pet')) return;
     
     obstacle.destroy();
@@ -466,7 +465,6 @@ export class SweetSprintScene extends Phaser.Scene {
       onComplete: () => {
         this.player.alpha = 1;
         this.isInvulnerable = false;
-        // Smoothly ramp speed back up
         this.tweens.addCounter({
           from: this.baseSpeed,
           to: oldSpeed,
@@ -486,7 +484,6 @@ export class SweetSprintScene extends Phaser.Scene {
     this.onUpdateCookies(this.cookiesCollected);
     cookie.destroy();
     
-    // Tiny pop effect
     this.tweens.add({
       targets: this.player,
       scale: this.laneScales[this.currentLane] * 1.3,
