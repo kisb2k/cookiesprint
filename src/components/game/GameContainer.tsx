@@ -103,6 +103,7 @@ export default function GameContainer() {
     canvas?.focus();
     const scene = phaserGame.current?.scene.getScene('SweetSprintScene') as SweetSprintScene;
     scene?.restart();
+    // Tiny delay to ensure restart completes
     setTimeout(() => {
       const restartedScene = phaserGame.current?.scene.getScene('SweetSprintScene') as SweetSprintScene;
       restartedScene?.resumeGame();
