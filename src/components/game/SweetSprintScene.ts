@@ -5,13 +5,12 @@ export class SweetSprintScene extends Phaser.Scene {
   private currentLane: number = 1;
   private laneYPositions: number[] = [320, 440, 560];
   private laneScales: number[] = [0.75, 1.0, 1.25];
-  // Speed multipliers for each lane: Top is slowest, Bottom is fastest
-  private laneSpeedMultipliers: number[] = [0.7, 1.0, 1.4];
+  private laneSpeedMultipliers: number[] = [0.6, 1.0, 1.5];
   
   private score: number = 0;
   private distance: number = 0;
   private cookiesCollected: number = 0;
-  private baseSpeed: number = 14; 
+  private baseSpeed: number = 8; 
   
   private clouds!: Phaser.GameObjects.Group;
   private bridgeDecks: Phaser.GameObjects.TileSprite[] = [];
@@ -22,7 +21,7 @@ export class SweetSprintScene extends Phaser.Scene {
   private particles!: Phaser.GameObjects.Particles.ParticleEmitter;
   
   private lastSpawnDistance: number = 0;
-  private spawnInterval: number = 300; // Meters between obstacle spawns
+  private spawnInterval: number = 300; 
 
   private lives: number = 2;
   private isInvulnerable: boolean = false;
@@ -30,6 +29,8 @@ export class SweetSprintScene extends Phaser.Scene {
 
   private onGameOver: (score: number, cookies: number) => void;
   private onUpdateLives: (lives: number) => void;
+  private onUpdateScore: (score: number) => void;
+  private onUpdateCookies: (cookies: number) => void;
 
   private upKey!: Phaser.Input.Keyboard.Key;
   private downKey!: Phaser.Input.Keyboard.Key;
@@ -38,18 +39,22 @@ export class SweetSprintScene extends Phaser.Scene {
 
   constructor(
     onGameOver: (score: number, cookies: number) => void,
-    onUpdateLives: (lives: number) => void
+    onUpdateLives: (lives: number) => void,
+    onUpdateScore: (score: number) => void,
+    onUpdateCookies: (cookies: number) => void
   ) {
     super('SweetSprintScene');
     this.onGameOver = onGameOver;
     this.onUpdateLives = onUpdateLives;
+    this.onUpdateScore = onUpdateScore;
+    this.onUpdateCookies = onUpdateCookies;
   }
 
   init() {
     this.score = 0;
     this.distance = 0;
     this.cookiesCollected = 0;
-    this.baseSpeed = 14;
+    this.baseSpeed = 8;
     this.currentLane = 1;
     this.lives = 2;
     this.isInvulnerable = false;
@@ -61,21 +66,17 @@ export class SweetSprintScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
 
-    // 1. Sky
     const sky = this.add.graphics();
     sky.fillGradientStyle(0x7dd3fc, 0x7dd3fc, 0xbae6fd, 0xbae6fd, 1);
     sky.fillRect(0, 0, width, height);
 
-    // 2. Parallax distant bridge
     this.createDistantBridge();
 
-    // 3. Clouds
     this.clouds = this.add.group();
     for (let i = 0; i < 8; i++) {
       this.createCloud(Phaser.Math.Between(0, width), Phaser.Math.Between(30, 150));
     }
 
-    // 4. Bridge Levels
     this.createBridgeTextures();
     this.laneYPositions.forEach((y, index) => {
       const deckHeight = 80 * this.laneScales[index];
@@ -85,7 +86,6 @@ export class SweetSprintScene extends Phaser.Scene {
       this.bridgeDecks.push(tileSprite);
     });
 
-    // 5. Particles
     this.particles = this.add.particles(0, 0, 'dust', {
       speed: { min: 20, max: 100 },
       scale: { start: 0.5, end: 0 },
@@ -98,22 +98,18 @@ export class SweetSprintScene extends Phaser.Scene {
     });
     this.particles.stop();
 
-    // 6. Groups
     this.obstacles = this.physics.add.group();
     this.cookies = this.physics.add.group();
 
-    // 7. Player
     this.createPlayer();
-    
-    // 8. Inputs
     this.setupInputs();
 
     this.onUpdateLives(this.lives);
+    this.onUpdateScore(0);
+    this.onUpdateCookies(0);
 
-    // Initial Spawning
     this.spawnObstacleSet();
 
-    // Collisions
     this.physics.add.overlap(this.player, this.obstacles, this.handleCollision, undefined, this);
     this.physics.add.overlap(this.player, this.cookies, this.collectCookie, undefined, this);
   }
@@ -225,33 +221,31 @@ export class SweetSprintScene extends Phaser.Scene {
 
     this.particles.start();
 
-    // Parallax
-    this.distantBridge.tilePositionX += this.baseSpeed * 0.1;
+    this.distantBridge.tilePositionX += this.baseSpeed * 0.1 * delta * 0.05;
     this.clouds.children.iterate((cloud: any) => {
       cloud.x -= cloud.getData('speed') * delta * 0.1;
       if (cloud.x < -100) cloud.x = 900;
       return true;
     });
     
-    // Varying speeds for bridge decks
     this.bridgeDecks.forEach((deck, index) => {
-      deck.tilePositionX += this.baseSpeed * 0.8 * this.laneSpeedMultipliers[index];
+      deck.tilePositionX += this.baseSpeed * 0.05 * delta * this.laneSpeedMultipliers[index];
     });
 
-    // Distance and Speed progression
-    // Distance tracks the "middle" lane speed for consistency
-    this.distance += (this.baseSpeed * 0.05);
-    this.score = Math.floor(this.distance);
-
-    if (this.score > 0 && this.score % 1000 === 0) {
-      this.baseSpeed += 0.05;
+    this.distance += (this.baseSpeed * 0.005 * delta);
+    if (Math.floor(this.distance) !== this.score) {
+      this.score = Math.floor(this.distance);
+      this.onUpdateScore(this.score);
     }
 
-    // Move obstacles and cookies based on lane-specific speed
+    if (this.score > 0 && this.score % 1000 === 0) {
+      this.baseSpeed += 0.01;
+    }
+
     this.obstacles.children.iterate((child: any) => {
       if (child) {
         const lane = child.getData('lane');
-        child.x -= (this.baseSpeed * 0.1 * delta) * this.laneSpeedMultipliers[lane];
+        child.x -= (this.baseSpeed * 0.05 * delta) * this.laneSpeedMultipliers[lane];
         if (child.x < -300) child.destroy();
       }
       return true;
@@ -260,17 +254,15 @@ export class SweetSprintScene extends Phaser.Scene {
     this.cookies.children.iterate((child: any) => {
       if (child) {
         const lane = child.getData('lane');
-        child.x -= (this.baseSpeed * 0.1 * delta) * this.laneSpeedMultipliers[lane];
+        child.x -= (this.baseSpeed * 0.05 * delta) * this.laneSpeedMultipliers[lane];
         if (child.x < -300) child.destroy();
       }
       return true;
     });
 
-    // Regular Spawning Cadence (Math based)
     if (this.distance - this.lastSpawnDistance > this.spawnInterval) {
       this.spawnObstacleSet();
       this.lastSpawnDistance = this.distance;
-      // Frequency increases slightly over time
       this.spawnInterval = Math.max(150, 300 - (this.distance / 100));
     }
   }
@@ -334,19 +326,17 @@ export class SweetSprintScene extends Phaser.Scene {
 
     for (let i = 0; i < obstacleCount; i++) {
       let lane = Phaser.Math.Between(0, 2);
-      // Avoid putting obstacles in all 3 lanes at exact same time
       if (usedLanes.size < 2) {
         usedLanes.add(lane);
         const type = ['vehicle', 'pet', 'person', 'waterPuddle'][Phaser.Math.Between(0, 3)];
-        this.createObstacle(lane, type, 800 + (i * 200) + Phaser.Math.Between(0, 100));
+        this.createObstacle(lane, type, 900 + (i * 250));
       }
     }
 
-    // Distribute cookies in empty or random spots
     const cookieCount = Phaser.Math.Between(1, 2);
     for (let j = 0; j < cookieCount; j++) {
       let cookieLane = Phaser.Math.Between(0, 2);
-      this.createCookie(800 + Phaser.Math.Between(100, 600), this.laneYPositions[cookieLane] - 50, cookieLane);
+      this.createCookie(900 + Phaser.Math.Between(100, 600), this.laneYPositions[cookieLane] - 50, cookieLane);
     }
   }
 
@@ -431,9 +421,7 @@ export class SweetSprintScene extends Phaser.Scene {
     if (obstacleLane !== this.currentLane) return;
 
     const type = obstacle.getData('type');
-    // sliding avoids pets and puddles
     if (this.player.getData('sliding') && (type === 'pet' || type === 'waterPuddle')) return;
-    // jumping avoids puddles and pets
     if (this.player.getData('jumping') && (type === 'waterPuddle' || type === 'pet')) return;
     
     obstacle.destroy();
@@ -450,7 +438,7 @@ export class SweetSprintScene extends Phaser.Scene {
   private triggerHitEffect() {
     this.isInvulnerable = true;
     const oldSpeed = this.baseSpeed;
-    this.baseSpeed = Math.max(6, this.baseSpeed * 0.4);
+    this.baseSpeed = Math.max(4, this.baseSpeed * 0.4);
 
     this.tweens.add({
       targets: this.player,
@@ -477,6 +465,7 @@ export class SweetSprintScene extends Phaser.Scene {
     if (lane !== this.currentLane) return;
 
     this.cookiesCollected++;
+    this.onUpdateCookies(this.cookiesCollected);
     cookie.destroy();
     
     this.tweens.add({

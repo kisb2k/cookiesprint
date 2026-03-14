@@ -55,9 +55,9 @@ export default function GameContainer() {
           setCookies(finalCookies);
           setGameState('gameover');
         },
-        (currentLives) => {
-          setLives(currentLives);
-        }
+        (currentLives) => setLives(currentLives),
+        (currentScore) => setScore(currentScore),
+        (currentCookies) => setCookies(currentCookies)
       ),
     };
 
@@ -71,6 +71,8 @@ export default function GameContainer() {
   const startGame = () => {
     setGameState('playing');
     setLives(2);
+    setScore(0);
+    setCookies(0);
     const canvas = gameRef.current?.querySelector('canvas');
     canvas?.focus();
     
@@ -99,11 +101,12 @@ export default function GameContainer() {
   const restartGame = () => {
     setGameState('playing');
     setLives(2);
+    setScore(0);
+    setCookies(0);
     const canvas = gameRef.current?.querySelector('canvas');
     canvas?.focus();
     const scene = phaserGame.current?.scene.getScene('SweetSprintScene') as SweetSprintScene;
     scene?.restart();
-    // Tiny delay to ensure restart completes
     setTimeout(() => {
       const restartedScene = phaserGame.current?.scene.getScene('SweetSprintScene') as SweetSprintScene;
       restartedScene?.resumeGame();
@@ -142,11 +145,11 @@ export default function GameContainer() {
             <CardContent className="flex flex-col gap-8 text-center p-10 bg-white">
               <div className="grid grid-cols-2 gap-4 text-left">
                 <div className="bg-sky-50 p-4 rounded-2xl border border-sky-100">
-                  <p className="text-xs font-bold text-sky-600 uppercase mb-1">Move Levels</p>
+                  <p className="text-xs font-bold text-sky-600 uppercase mb-1">Switch Level</p>
                   <p className="text-sm font-medium">Arrow Up / Down</p>
                 </div>
                 <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100">
-                  <p className="text-xs font-bold text-orange-600 uppercase mb-1">Dodge/Slide</p>
+                  <p className="text-xs font-bold text-orange-600 uppercase mb-1">Slide</p>
                   <p className="text-sm font-medium">Left / Right</p>
                 </div>
               </div>
