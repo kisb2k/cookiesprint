@@ -48,7 +48,7 @@ export default function GameContainer() {
           debug: false,
         },
       },
-      transparent: true,
+      backgroundColor: '#87CEEB',
       scene: new SweetSprintScene(
         (finalScore, finalCookies) => {
           setScore(finalScore);
@@ -108,28 +108,31 @@ export default function GameContainer() {
   };
 
   return (
-    <div className="relative w-full h-screen flex flex-col items-center justify-center bg-background overflow-hidden p-4">
+    <div className="relative w-full h-screen flex flex-col items-center justify-center bg-[#E0F2FE] overflow-hidden p-4">
       {/* Game Canvas Container */}
       <div 
         ref={gameRef} 
-        className={`w-full max-w-[800px] aspect-[4/3] shadow-2xl rounded-2xl overflow-hidden bg-sky-50 border-8 border-primary/20 transition-all ${gameState !== 'playing' ? 'blur-sm' : ''}`}
+        className={`w-full max-w-[800px] aspect-[4/3] shadow-2xl rounded-3xl overflow-hidden bg-sky-100 border-8 border-white transition-all ${gameState !== 'playing' ? 'blur-sm scale-[0.98]' : ''}`}
       />
 
       {/* Overlays */}
       {gameState === 'start' && (
-        <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/40 backdrop-blur-sm">
-          <Card className="w-96 border-primary border-2 shadow-2xl animate-in zoom-in-95">
-            <CardHeader className="text-center">
-              <CardTitle className="text-5xl font-headline text-primary flex items-center justify-center gap-2">
-                <BridgeIcon className="h-10 w-10" /> SweetSprint
+        <div className="absolute inset-0 flex items-center justify-center z-10 bg-sky-900/20 backdrop-blur-md">
+          <Card className="w-96 border-white border-4 shadow-2xl animate-in zoom-in-95 rounded-3xl">
+            <CardHeader className="text-center pt-8">
+              <CardTitle className="text-5xl font-headline text-primary flex flex-col items-center gap-4">
+                <div className="bg-primary/10 p-4 rounded-full">
+                  <BridgeIcon className="h-12 w-12 text-primary" />
+                </div>
+                SweetSprint
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-4 text-center">
-              <p className="text-muted-foreground">
-                Run across the 3 bridge levels! Use <b>W/S</b> or <b>Arrows</b> to switch levels. <b>Space</b> to Jump, <b>Shift</b> to Slide.
+            <CardContent className="flex flex-col gap-6 text-center pb-8">
+              <p className="text-muted-foreground font-medium px-4">
+                Run across the three bridge levels! Use <b>W/S</b> to change levels and <b>Space</b> to jump over obstacles.
               </p>
-              <Button size="lg" onClick={startGame} className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-8 text-2xl">
-                <Play className="mr-2 h-8 w-8" /> START BRIDGE RUN
+              <Button size="lg" onClick={startGame} className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-8 text-2xl rounded-2xl shadow-lg transform active:scale-95 transition-all">
+                <Play className="mr-2 h-8 w-8" /> START RUN
               </Button>
             </CardContent>
           </Card>
@@ -137,19 +140,19 @@ export default function GameContainer() {
       )}
 
       {gameState === 'paused' && (
-        <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/40 backdrop-blur-sm">
-          <Card className="w-80 border-primary border-2 shadow-2xl animate-in zoom-in-95">
+        <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/30 backdrop-blur-sm">
+          <Card className="w-80 border-white border-4 shadow-2xl animate-in zoom-in-95 rounded-3xl">
             <CardHeader className="text-center">
-              <CardTitle className="text-3xl font-headline text-primary">Paused</CardTitle>
+              <CardTitle className="text-3xl font-headline text-primary">Game Paused</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <Button size="lg" onClick={resumeGame} className="w-full bg-primary hover:bg-primary/90 text-white font-bold">
+            <CardContent className="flex flex-col gap-3 pb-8">
+              <Button size="lg" onClick={resumeGame} className="w-full bg-primary hover:bg-primary/90 text-white font-bold rounded-xl">
                 <Play className="mr-2 h-5 w-5" /> RESUME
               </Button>
-              <Button size="lg" variant="outline" onClick={restartGame} className="w-full border-primary text-primary hover:bg-primary/10 font-bold">
+              <Button size="lg" variant="outline" onClick={restartGame} className="w-full border-primary text-primary hover:bg-primary/10 font-bold rounded-xl">
                 <RotateCcw className="mr-2 h-5 w-5" /> RESTART
               </Button>
-              <Button size="lg" variant="ghost" onClick={goHome} className="w-full text-muted-foreground">
+              <Button size="lg" variant="ghost" onClick={goHome} className="w-full text-muted-foreground rounded-xl">
                 <Home className="mr-2 h-5 w-5" /> MAIN MENU
               </Button>
             </CardContent>
@@ -158,30 +161,30 @@ export default function GameContainer() {
       )}
 
       {gameState === 'gameover' && (
-        <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/60 backdrop-blur-md">
-          <Card className="w-96 border-secondary border-2 shadow-2xl animate-in zoom-in-95">
-            <CardHeader className="text-center">
-              <CardTitle className="text-4xl font-headline text-secondary">Oops! You fell!</CardTitle>
-              <p className="text-muted-foreground text-lg">The bridge was too tricky this time.</p>
+        <div className="absolute inset-0 flex items-center justify-center z-10 bg-sky-950/40 backdrop-blur-md">
+          <Card className="w-96 border-secondary border-4 shadow-2xl animate-in zoom-in-95 rounded-3xl">
+            <CardHeader className="text-center pt-8">
+              <CardTitle className="text-4xl font-headline text-secondary">Aww, you hit something!</CardTitle>
+              <p className="text-muted-foreground font-medium">The bridge levels can be tricky.</p>
             </CardHeader>
-            <CardContent className="flex flex-col gap-6 text-center">
+            <CardContent className="flex flex-col gap-6 text-center pb-8">
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-muted p-4 rounded-xl border border-border shadow-inner">
-                  <p className="text-xs uppercase font-bold text-muted-foreground tracking-widest">Bridge Distance</p>
-                  <p className="text-3xl font-headline text-primary">{score}m</p>
+                <div className="bg-sky-50 p-4 rounded-2xl border-2 border-sky-100">
+                  <p className="text-[10px] uppercase font-bold text-sky-400 tracking-widest">Distance</p>
+                  <p className="text-3xl font-headline text-sky-900">{score}m</p>
                 </div>
-                <div className="bg-muted p-4 rounded-xl border border-border shadow-inner">
-                  <p className="text-xs uppercase font-bold text-muted-foreground tracking-widest">Cookies Found</p>
-                  <p className="text-3xl font-headline text-accent flex items-center justify-center">
+                <div className="bg-orange-50 p-4 rounded-2xl border-2 border-orange-100">
+                  <p className="text-[10px] uppercase font-bold text-orange-400 tracking-widest">Cookies</p>
+                  <p className="text-3xl font-headline text-orange-600 flex items-center justify-center">
                     <Cookie className="mr-2 h-6 w-6" /> {cookies}
                   </p>
                 </div>
               </div>
               <div className="flex flex-col gap-3">
-                <Button size="lg" onClick={restartGame} className="w-full bg-secondary hover:bg-secondary/90 text-white font-bold py-6 text-xl">
-                  <RotateCcw className="mr-2 h-6 w-6" /> RETRY RUN
+                <Button size="lg" onClick={restartGame} className="w-full bg-secondary hover:bg-secondary/90 text-white font-bold py-6 text-xl rounded-2xl shadow-lg transform active:scale-95 transition-all">
+                  <RotateCcw className="mr-2 h-6 w-6" /> TRY AGAIN
                 </Button>
-                <Button variant="ghost" onClick={goHome} className="w-full text-muted-foreground">
+                <Button variant="ghost" onClick={goHome} className="w-full text-muted-foreground rounded-xl">
                   <Home className="mr-2 h-5 w-5" /> MAIN MENU
                 </Button>
               </div>
@@ -192,27 +195,27 @@ export default function GameContainer() {
 
       {/* HUD */}
       <div className="absolute top-12 left-0 right-0 flex justify-between px-12 z-0 pointer-events-none">
-        <div className="flex gap-6">
-          <div className="flex flex-col items-center bg-white/90 backdrop-blur px-8 py-3 rounded-2xl shadow-xl border-2 border-primary/20">
-            <span className="text-[12px] font-bold text-primary uppercase tracking-tighter">Distance</span>
-            <span className="text-3xl font-headline tabular-nums">{score}m</span>
+        <div className="flex gap-4">
+          <div className="flex flex-col items-center bg-white/95 backdrop-blur px-6 py-2 rounded-2xl shadow-lg border-2 border-sky-100">
+            <span className="text-[10px] font-bold text-sky-500 uppercase tracking-tighter">Metres</span>
+            <span className="text-2xl font-headline text-sky-900 tabular-nums">{score}</span>
           </div>
-          <div className="flex flex-col items-center bg-white/90 backdrop-blur px-8 py-3 rounded-2xl shadow-xl border-2 border-accent/20">
-            <span className="text-[12px] font-bold text-accent uppercase tracking-tighter">Cookies</span>
-            <span className="text-3xl font-headline text-accent tabular-nums flex items-center">
-              <Cookie className="mr-2 h-6 w-6 fill-accent animate-pulse" /> {cookies}
+          <div className="flex flex-col items-center bg-white/95 backdrop-blur px-6 py-2 rounded-2xl shadow-lg border-2 border-orange-100">
+            <span className="text-[10px] font-bold text-orange-500 uppercase tracking-tighter">Cookies</span>
+            <span className="text-2xl font-headline text-orange-600 tabular-nums flex items-center">
+              <Cookie className="mr-1 h-5 w-5 fill-orange-500" /> {cookies}
             </span>
           </div>
         </div>
 
-        <div className="flex gap-6 items-start">
-          <div className="flex flex-col items-center bg-white/90 backdrop-blur px-8 py-3 rounded-2xl shadow-xl border-2 border-red-200">
-            <span className="text-[12px] font-bold text-red-500 uppercase tracking-tighter">Health</span>
-            <div className="flex gap-2 mt-2">
+        <div className="flex gap-4 items-start">
+          <div className="flex flex-col items-center bg-white/95 backdrop-blur px-6 py-2 rounded-2xl shadow-lg border-2 border-red-100">
+            <span className="text-[10px] font-bold text-red-500 uppercase tracking-tighter">Health</span>
+            <div className="flex gap-1.5 mt-1">
               {[...Array(2)].map((_, i) => (
                 <Heart 
                   key={i} 
-                  className={`h-6 w-6 ${i < lives ? 'fill-red-500 text-red-500 drop-shadow-md' : 'text-slate-300'}`} 
+                  className={`h-5 w-5 ${i < lives ? 'fill-red-500 text-red-500' : 'text-slate-200'}`} 
                 />
               ))}
             </div>
@@ -223,9 +226,9 @@ export default function GameContainer() {
               size="icon" 
               variant="secondary" 
               onClick={pauseGame} 
-              className="rounded-full h-14 w-14 shadow-2xl pointer-events-auto border-4 border-white bg-secondary hover:bg-secondary/90"
+              className="rounded-2xl h-14 w-14 shadow-xl pointer-events-auto border-4 border-white bg-primary hover:bg-primary/90 text-white"
             >
-              <Pause className="h-8 w-8 text-white fill-white" />
+              <Pause className="h-7 w-7 fill-white" />
             </Button>
           )}
         </div>
