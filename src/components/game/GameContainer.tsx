@@ -6,13 +6,14 @@ import * as Phaser from 'phaser';
 import { SweetSprintScene } from './SweetSprintScene';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trophy, Cookie, Play, RotateCcw } from 'lucide-react';
+import { Cookie, Play, RotateCcw, Heart } from 'lucide-react';
 
 export default function GameContainer() {
   const gameRef = useRef<HTMLDivElement>(null);
   const [gameState, setGameState] = useState<'start' | 'playing' | 'gameover'>('start');
   const [score, setScore] = useState(0);
   const [cookies, setCookies] = useState(0);
+  const [lives, setLives] = useState(2);
   const phaserGame = useRef<Phaser.Game | null>(null);
 
   useEffect(() => {
@@ -30,11 +31,16 @@ export default function GameContainer() {
         },
       },
       transparent: true,
-      scene: new SweetSprintScene((finalScore, finalCookies) => {
-        setScore(finalScore);
-        setCookies(finalCookies);
-        setGameState('gameover');
-      }),
+      scene: new SweetSprintScene(
+        (finalScore, finalCookies) => {
+          setScore(finalScore);
+          setCookies(finalCookies);
+          setGameState('gameover');
+        },
+        (currentLives) => {
+          setLives(currentLives);
+        }
+      ),
     };
 
     phaserGame.current = new Phaser.Game(config);
@@ -46,13 +52,14 @@ export default function GameContainer() {
 
   const startGame = () => {
     setGameState('playing');
-    // Start game logic if paused or not started
+    setLives(2);
   };
 
   const restartGame = () => {
     const scene = phaserGame.current?.scene.getScene('SweetSprintScene') as SweetSprintScene;
     scene?.restart();
     setGameState('playing');
+    setLives(2);
   };
 
   return (
@@ -111,7 +118,7 @@ export default function GameContainer() {
       )}
 
       {/* Hud */}
-      <div className="absolute top-8 left-1/2 -translate-x-1/2 flex gap-8 z-0 pointer-events-none">
+      <div className="absolute top-8 left-1/2 -translate-x-1/2 flex gap-4 z-0 pointer-events-none">
         <div className="flex flex-col items-center bg-white/80 backdrop-blur px-6 py-2 rounded-full shadow-lg border-2 border-primary/20">
           <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Distance</span>
           <span className="text-2xl font-headline tabular-nums">{score}</span>
@@ -121,6 +128,17 @@ export default function GameContainer() {
           <span className="text-2xl font-headline text-accent tabular-nums flex items-center">
             <Cookie className="mr-1 h-5 w-5 fill-accent" /> {cookies}
           </span>
+        </div>
+        <div className="flex flex-col items-center bg-white/80 backdrop-blur px-6 py-2 rounded-full shadow-lg border-2 border-red-100">
+          <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider">Health</span>
+          <div className="flex gap-1 mt-1">
+            {[...Array(2)].map((_, i) => (
+              <Heart 
+                key={i} 
+                className={`h-4 w-4 ${i < lives ? 'fill-red-500 text-red-500' : 'text-slate-300'}`} 
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>

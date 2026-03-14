@@ -27,11 +27,19 @@ export class SweetSprintScene extends Phaser.Scene {
   private segmentLength: number = 1500;
   private isGenerating: boolean = false;
 
-  private onGameOver: (score: number, cookies: number) => void;
+  private lives: number = 2;
+  private isInvulnerable: boolean = false;
 
-  constructor(onGameOver: (score: number, cookies: number) => void) {
+  private onGameOver: (score: number, cookies: number) => void;
+  private onUpdateLives: (lives: number) => void;
+
+  constructor(
+    onGameOver: (score: number, cookies: number) => void,
+    onUpdateLives: (lives: number) => void
+  ) {
     super('SweetSprintScene');
     this.onGameOver = onGameOver;
+    this.onUpdateLives = onUpdateLives;
   }
 
   preload() {
@@ -54,24 +62,19 @@ export class SweetSprintScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     // Environment Layers
-    // 1. Sidewalks
     this.leftSidewalk = this.add.tileSprite(40, height / 2, 80, height, 'sidewalk');
     this.rightSidewalk = this.add.tileSprite(width - 40, height / 2, 80, height, 'sidewalk');
 
-    // 2. Main Road
     this.road = this.add.tileSprite(width / 2, height / 2, width - 160, height, 'street');
     this.road.setTint(0x444444);
 
-    // 3. Road Lines (Lane markings)
     const graphics = this.add.graphics();
     graphics.fillStyle(0xffffff, 0.5);
-    // Draw lane lines onto a texture
     graphics.fillRect(0, 0, 10, 40);
     graphics.generateTexture('roadLine', 10, 60);
     graphics.destroy();
 
     this.roadLines = this.add.tileSprite(width / 2, height / 2, width - 160, height, 'roadLine');
-    // Align lines to lanes
     this.roadLines.setTilePosition(0, 0);
 
     // Player
@@ -88,6 +91,9 @@ export class SweetSprintScene extends Phaser.Scene {
 
     // Initial AI Obstacles
     this.requestNewSegment();
+
+    // Stats
+    this.onUpdateLives(this.lives);
 
     // Collisions
     this.physics.add.overlap(this.player, this.obstacles, (p, o) => this.handleCollision(o as Phaser.GameObjects.Sprite));
@@ -138,7 +144,7 @@ export class SweetSprintScene extends Phaser.Scene {
       this.speed += 0.1;
     }
 
-    // Move and Clean up obstacles
+    // Move and Clean up
     this.updateGroup(this.obstacles);
     this.updateGroup(this.cookies);
 
@@ -226,7 +232,6 @@ export class SweetSprintScene extends Phaser.Scene {
       this.lastObstacleDistance = this.distance;
       this.placeObstacles(data.obstacles);
     } catch (e) {
-      // Fallback obstacles if AI fails
       this.placeObstacles([
         { type: 'waterPuddle', lane: '1', distanceFromStart: 300 }
       ]);
@@ -237,7 +242,6 @@ export class SweetSprintScene extends Phaser.Scene {
 
   private placeObstacles(obstacleData: any[]) {
     obstacleData.forEach(obs => {
-      // Offset spawn point above screen
       const spawnY = -obs.distanceFromStart - 200;
       const x = this.getLaneX(parseInt(obs.lane));
       
@@ -250,7 +254,6 @@ export class SweetSprintScene extends Phaser.Scene {
         else obstacle.setScale(0.8);
       }
 
-      // Add cookies in patterns around obstacles
       if (Math.random() > 0.3) {
         const cookie = this.cookies?.create(x, spawnY + 200, 'cookie');
         cookie?.setScale(0.6);
@@ -260,6 +263,8 @@ export class SweetSprintScene extends Phaser.Scene {
   }
 
   private handleCollision(obstacle: Phaser.GameObjects.Sprite) {
+    if (this.isInvulnerable || !this.player.active) return;
+
     const type = obstacle.getData('type');
     
     // Skill checks
@@ -267,7 +272,44 @@ export class SweetSprintScene extends Phaser.Scene {
     if (type === 'vehicle' && this.isSliding) return;
     if (type === 'pet' && this.isJumping) return;
 
-    this.gameOver();
+    // We hit an obstacle
+    obstacle.destroy();
+    this.lives--;
+    this.onUpdateLives(this.lives);
+
+    if (this.lives <= 0) {
+      this.gameOver();
+    } else {
+      this.triggerHitEffect();
+    }
+  }
+
+  private triggerHitEffect() {
+    this.isInvulnerable = true;
+    const prevSpeed = this.speed;
+    this.speed = Math.max(4, this.speed * 0.4); // Significant slow down
+
+    // Flash effect for invulnerability
+    this.tweens.add({
+      targets: this.player,
+      alpha: 0.2,
+      duration: 150,
+      yoyo: true,
+      repeat: 4,
+      onComplete: () => {
+        this.player.alpha = 1;
+        this.isInvulnerable = false;
+        // Gradually recover speed
+        this.tweens.addCounter({
+          from: this.speed,
+          to: prevSpeed,
+          duration: 1500,
+          onUpdate: (tween) => {
+            this.speed = tween.getValue();
+          }
+        });
+      }
+    });
   }
 
   private collectCookie(cookie: Phaser.GameObjects.Sprite) {
@@ -285,6 +327,7 @@ export class SweetSprintScene extends Phaser.Scene {
   private gameOver() {
     this.physics.pause();
     this.player.setTint(0xff0000);
+    this.onUpdateLives(0);
     this.onGameOver(this.score, this.cookiesCollected);
   }
 
@@ -297,5 +340,7 @@ export class SweetSprintScene extends Phaser.Scene {
     this.currentLane = 1;
     this.isJumping = false;
     this.isSliding = false;
+    this.lives = 2;
+    this.isInvulnerable = false;
   }
 }
