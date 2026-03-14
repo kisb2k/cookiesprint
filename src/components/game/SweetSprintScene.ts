@@ -3,7 +3,7 @@ import { generateObstacleSequence } from '@/ai/flows/dynamic-obstacle-placement-
 
 export class SweetSprintScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Container;
-  private playerParts: { body: Phaser.GameObjects.Rectangle, head: Phaser.GameObjects.Arc, lLeg: Phaser.GameObjects.Rectangle, rLeg: Phaser.GameObjects.Rectangle } = {} as any;
+  private playerParts: { body: Phaser.GameObjects.Rectangle, head: Phaser.GameObjects.Arc, lLeg: Phaser.GameObjects.Rectangle, rLeg: Phaser.GameObjects.Rectangle, lArm: Phaser.GameObjects.Rectangle, rArm: Phaser.GameObjects.Rectangle } = {} as any;
   
   private currentLane: number = 1;
   private laneYPositions: number[] = [300, 420, 540];
@@ -54,13 +54,13 @@ export class SweetSprintScene extends Phaser.Scene {
   }
 
   preload() {
-    // No external image assets needed - we draw everything!
+    // No external image assets needed - we draw everything with Phaser Graphics
   }
 
   create() {
     const { width, height } = this.scale;
 
-    // 1. Blue Sky Background
+    // 1. Blue Sky Gradient Background
     const sky = this.add.graphics();
     sky.fillGradientStyle(0x87CEEB, 0x87CEEB, 0x00BFFF, 0x00BFFF, 1);
     sky.fillRect(0, 0, width, height);
@@ -83,7 +83,7 @@ export class SweetSprintScene extends Phaser.Scene {
     this.obstacles = this.physics.add.group();
     this.cookies = this.physics.add.group();
 
-    // 5. Animated Runner (Procedural)
+    // 5. Animated Runner (Procedural person)
     this.createPlayer();
     
     // 6. Inputs
@@ -151,12 +151,14 @@ export class SweetSprintScene extends Phaser.Scene {
     const head = this.add.arc(0, -60, 10, 0, 360, false, 0xffdbac);
     const lLeg = this.add.rectangle(-5, -10, 8, 20, 0x333333);
     const rLeg = this.add.rectangle(5, -10, 8, 20, 0x333333);
+    const lArm = this.add.rectangle(-12, -35, 6, 25, 0xDC634A);
+    const rArm = this.add.rectangle(12, -35, 6, 25, 0xDC634A);
     
-    this.player.add([lLeg, rLeg, body, head]);
-    this.playerParts = { body, head, lLeg, rLeg };
+    this.player.add([lLeg, rLeg, lArm, rArm, body, head]);
+    this.playerParts = { body, head, lLeg, rLeg, lArm, rArm };
     this.player.setScale(scale);
 
-    // Running Animation Loop
+    // Running Animation Loops using Tweens
     this.tweens.add({
       targets: lLeg,
       angle: { from: -30, to: 30 },
@@ -167,6 +169,20 @@ export class SweetSprintScene extends Phaser.Scene {
     this.tweens.add({
       targets: rLeg,
       angle: { from: 30, to: -30 },
+      duration: 200,
+      yoyo: true,
+      repeat: -1
+    });
+    this.tweens.add({
+      targets: lArm,
+      angle: { from: 30, to: -30 },
+      duration: 200,
+      yoyo: true,
+      repeat: -1
+    });
+    this.tweens.add({
+      targets: rArm,
+      angle: { from: -30, to: 30 },
       duration: 200,
       yoyo: true,
       repeat: -1
@@ -193,6 +209,7 @@ export class SweetSprintScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-W', () => this.moveLane(-1));
     this.input.keyboard?.on('keydown-S', () => this.moveLane(1));
     this.input.keyboard?.on('keydown-SPACE', () => this.jump());
+    // Keep shift for slide but primary are Space/Arrows
     this.input.keyboard?.on('keydown-SHIFT', () => this.slide());
   }
 
@@ -205,16 +222,12 @@ export class SweetSprintScene extends Phaser.Scene {
       if (cloud.x < -100) cloud.x = this.scale.width + 100;
       return true;
     });
-
-    // Bridge details movement (simulated)
-    this.bridgeDecks.forEach((deck, i) => {
-      // In a real TileSprite we'd scroll, here we just keep score
-    });
     
-    // Update score/distance
+    // Update distance and score
     this.distance += this.speed * 0.05;
     this.score = Math.floor(this.distance) + (this.cookiesCollected * 100);
 
+    // Progressive speed increase
     if (this.distance > 0 && Math.floor(this.distance) % 2500 === 0) {
       this.speed += 0.2;
     }
@@ -239,6 +252,7 @@ export class SweetSprintScene extends Phaser.Scene {
       return true;
     });
 
+    // Request new level segments from GenAI
     if (this.distance - this.lastObstacleDistance > this.segmentLength && !this.isGenerating) {
       this.requestNewSegment();
     }
@@ -310,7 +324,7 @@ export class SweetSprintScene extends Phaser.Scene {
       this.lastObstacleDistance = this.distance;
       this.placeObstacles(data.obstacles);
     } catch (e) {
-      // Fallback
+      // Basic generation fallback if flow fails
     } finally {
       this.isGenerating = false;
     }
@@ -322,7 +336,6 @@ export class SweetSprintScene extends Phaser.Scene {
       const spawnX = this.scale.width + obs.distanceFromStart + 200;
       const spawnY = this.laneYPositions[laneIndex] + 20;
       
-      // Draw Obstacle Programmatically
       const container = this.add.container(spawnX, spawnY);
       const g = this.add.graphics();
       
@@ -336,10 +349,18 @@ export class SweetSprintScene extends Phaser.Scene {
         g.fillStyle(0xe67e22, 1);
         g.fillEllipse(0, -10, 30, 20);
         g.fillCircle(15, -20, 10);
-      } else {
+      } else if (obs.type === 'waterPuddle') {
+        g.fillStyle(0x3498db, 0.6);
+        g.fillEllipse(0, 0, 50, 15);
+        g.lineStyle(2, 0xffffff, 0.4);
+        g.strokeEllipse(0, 0, 50, 15);
+      } else { // person
         g.fillStyle(0x95a5a6, 1);
-        g.fillRect(-15, -50, 30, 50);
+        g.fillRect(-10, -50, 20, 40);
         g.fillCircle(0, -60, 10);
+        g.fillStyle(0x333333, 1);
+        g.fillRect(-10, -10, 8, 15);
+        g.fillRect(2, -10, 8, 15);
       }
       
       container.add(g);
@@ -353,7 +374,7 @@ export class SweetSprintScene extends Phaser.Scene {
       body.setSize(60, 60);
       body.setOffset(-30, -60);
 
-      // Cookies
+      // Procedural cookie placement
       if (Math.random() > 0.4) {
         this.createCookie(spawnX + 150, this.laneYPositions[laneIndex] - 40, laneIndex);
       }
@@ -394,7 +415,7 @@ export class SweetSprintScene extends Phaser.Scene {
     const obstacleLane = obstacle.getData('lane');
     if (obstacleLane !== this.currentLane) return;
 
-    // Type logic
+    // Specific hit logic based on action
     const type = obstacle.getData('type');
     if (this.player.getData('jumping') && (type === 'pet' || type === 'waterPuddle')) return;
     if (this.player.getData('sliding') && type === 'vehicle') return;

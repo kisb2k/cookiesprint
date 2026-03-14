@@ -129,7 +129,7 @@ export default function GameContainer() {
             </CardHeader>
             <CardContent className="flex flex-col gap-6 text-center pb-8">
               <p className="text-muted-foreground font-medium px-4">
-                Run across the three bridge levels! Use <b>W/S</b> to change levels and <b>Space</b> to jump over obstacles.
+                Run across the three bridge levels! Use <b>ARROWS</b> or <b>W/S</b> to change levels and <b>Space</b> to jump.
               </p>
               <Button size="lg" onClick={startGame} className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-8 text-2xl rounded-2xl shadow-lg transform active:scale-95 transition-all">
                 <Play className="mr-2 h-8 w-8" /> START RUN
