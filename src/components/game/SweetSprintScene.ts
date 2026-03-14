@@ -232,12 +232,14 @@ export class SweetSprintScene extends Phaser.Scene {
       deck.tilePositionX += this.baseSpeed * 0.05 * delta * this.laneSpeedMultipliers[index];
     });
 
-    this.distance += (this.baseSpeed * 0.005 * delta);
+    // Distance is dependent on the speed of the current level
+    this.distance += (this.baseSpeed * 0.005 * delta * this.laneSpeedMultipliers[this.currentLane]);
     if (Math.floor(this.distance) !== this.score) {
       this.score = Math.floor(this.distance);
       this.onUpdateScore(this.score);
     }
 
+    // Speed increases slowly over distance
     if (this.score > 0 && this.score % 1000 === 0) {
       this.baseSpeed += 0.01;
     }
@@ -245,6 +247,7 @@ export class SweetSprintScene extends Phaser.Scene {
     this.obstacles.children.iterate((child: any) => {
       if (child) {
         const lane = child.getData('lane');
+        // Move obstacles based on lane speed multiplier
         child.x -= (this.baseSpeed * 0.05 * delta) * this.laneSpeedMultipliers[lane];
         if (child.x < -300) child.destroy();
       }
@@ -263,6 +266,7 @@ export class SweetSprintScene extends Phaser.Scene {
     if (this.distance - this.lastSpawnDistance > this.spawnInterval) {
       this.spawnObstacleSet();
       this.lastSpawnDistance = this.distance;
+      // Adjust spawn interval based on distance for a smooth challenge curve
       this.spawnInterval = Math.max(150, 300 - (this.distance / 100));
     }
   }
@@ -421,7 +425,9 @@ export class SweetSprintScene extends Phaser.Scene {
     if (obstacleLane !== this.currentLane) return;
 
     const type = obstacle.getData('type');
+    // Sliding dodges small pets and puddles
     if (this.player.getData('sliding') && (type === 'pet' || type === 'waterPuddle')) return;
+    // Jumping dodges ground obstacles
     if (this.player.getData('jumping') && (type === 'waterPuddle' || type === 'pet')) return;
     
     obstacle.destroy();
@@ -449,6 +455,7 @@ export class SweetSprintScene extends Phaser.Scene {
       onComplete: () => {
         this.player.alpha = 1;
         this.isInvulnerable = false;
+        // Smoothly ramp speed back up
         this.tweens.addCounter({
           from: this.baseSpeed,
           to: oldSpeed,
@@ -468,6 +475,7 @@ export class SweetSprintScene extends Phaser.Scene {
     this.onUpdateCookies(this.cookiesCollected);
     cookie.destroy();
     
+    // Tiny pop effect
     this.tweens.add({
       targets: this.player,
       scale: this.laneScales[this.currentLane] * 1.3,
