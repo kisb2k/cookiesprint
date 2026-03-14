@@ -3,8 +3,6 @@ import { generateObstacleSequence } from '@/ai/flows/dynamic-obstacle-placement-
 
 export class SweetSprintScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Container;
-  private playerParts: { body: Phaser.GameObjects.Rectangle, head: Phaser.GameObjects.Arc, lLeg: Phaser.GameObjects.Rectangle, rLeg: Phaser.GameObjects.Rectangle, lArm: Phaser.GameObjects.Rectangle, rArm: Phaser.GameObjects.Rectangle } = {} as any;
-  
   private currentLane: number = 1;
   private laneYPositions: number[] = [300, 420, 540];
   private laneScales: number[] = [0.7, 1.0, 1.3];
@@ -26,10 +24,16 @@ export class SweetSprintScene extends Phaser.Scene {
 
   private lives: number = 2;
   private isInvulnerable: boolean = false;
-  private startPaused: boolean = true;
+  private isGameActive: boolean = false;
 
   private onGameOver: (score: number, cookies: number) => void;
   private onUpdateLives: (lives: number) => void;
+
+  private jumpKey!: Phaser.Input.Keyboard.Key;
+  private upKey!: Phaser.Input.Keyboard.Key;
+  private downKey!: Phaser.Input.Keyboard.Key;
+  private wKey!: Phaser.Input.Keyboard.Key;
+  private sKey!: Phaser.Input.Keyboard.Key;
 
   constructor(
     onGameOver: (score: number, cookies: number) => void,
@@ -40,7 +44,7 @@ export class SweetSprintScene extends Phaser.Scene {
     this.onUpdateLives = onUpdateLives;
   }
 
-  init(data?: { startPaused?: boolean }) {
+  init() {
     this.score = 0;
     this.distance = 0;
     this.cookiesCollected = 0;
@@ -50,11 +54,7 @@ export class SweetSprintScene extends Phaser.Scene {
     this.isInvulnerable = false;
     this.lastObstacleDistance = 0;
     this.isGenerating = false;
-    this.startPaused = data?.startPaused ?? true;
-  }
-
-  preload() {
-    // No external image assets needed - we draw everything with Phaser Graphics
+    this.isGameActive = false;
   }
 
   create() {
@@ -83,7 +83,7 @@ export class SweetSprintScene extends Phaser.Scene {
     this.obstacles = this.physics.add.group();
     this.cookies = this.physics.add.group();
 
-    // 5. Animated Runner (Procedural person)
+    // 5. Animated Runner
     this.createPlayer();
     
     // 6. Inputs
@@ -96,10 +96,6 @@ export class SweetSprintScene extends Phaser.Scene {
     // Collisions
     this.physics.add.overlap(this.player, this.obstacles, this.handleCollision, undefined, this);
     this.physics.add.overlap(this.player, this.cookies, this.collectCookie, undefined, this);
-
-    if (this.startPaused) {
-      this.scene.pause();
-    }
   }
 
   private drawBridgeDeck(g: Phaser.Graphics, y: number, index: number) {
@@ -107,21 +103,17 @@ export class SweetSprintScene extends Phaser.Scene {
     const depth = 60 * this.laneScales[index];
     
     g.clear();
-    // Deck floor
     g.fillStyle(0x333333, 1);
     g.fillRect(0, y, width, depth);
     
-    // Railings
     g.lineStyle(4 * this.laneScales[index], 0xdddddd, 1);
     g.lineBetween(0, y, width, y);
     g.lineBetween(0, y + depth, width, y + depth);
     
-    // Details (lines)
     g.lineStyle(2, 0xffffff, 0.3);
     for (let i = 0; i < width; i += 100) {
       g.lineBetween(i, y, i, y + depth);
     }
-    
     g.setDepth(5 + index * 10);
   }
 
@@ -146,7 +138,6 @@ export class SweetSprintScene extends Phaser.Scene {
     this.player = this.add.container(x, y);
     this.player.setDepth(50);
     
-    // Body Parts
     const body = this.add.rectangle(0, -30, 20, 40, 0xDC634A);
     const head = this.add.arc(0, -60, 10, 0, 360, false, 0xffdbac);
     const lLeg = this.add.rectangle(-5, -10, 8, 20, 0x333333);
@@ -155,10 +146,8 @@ export class SweetSprintScene extends Phaser.Scene {
     const rArm = this.add.rectangle(12, -35, 6, 25, 0xDC634A);
     
     this.player.add([lLeg, rLeg, lArm, rArm, body, head]);
-    this.playerParts = { body, head, lLeg, rLeg, lArm, rArm };
     this.player.setScale(scale);
 
-    // Running Animation Loops using Tweens
     this.tweens.add({
       targets: lLeg,
       angle: { from: -30, to: 30 },
@@ -187,16 +176,7 @@ export class SweetSprintScene extends Phaser.Scene {
       yoyo: true,
       repeat: -1
     });
-    this.tweens.add({
-      targets: this.player,
-      y: y - 5,
-      duration: 200,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
-    });
 
-    // Add invisible physics body
     this.physics.add.existing(this.player);
     const bodyPhys = this.player.body as Phaser.Physics.Arcade.Body;
     bodyPhys.setSize(30, 80);
@@ -204,35 +184,37 @@ export class SweetSprintScene extends Phaser.Scene {
   }
 
   private setupInputs() {
-    this.input.keyboard?.on('keydown-UP', () => this.moveLane(-1));
-    this.input.keyboard?.on('keydown-DOWN', () => this.moveLane(1));
-    this.input.keyboard?.on('keydown-W', () => this.moveLane(-1));
-    this.input.keyboard?.on('keydown-S', () => this.moveLane(1));
-    this.input.keyboard?.on('keydown-SPACE', () => this.jump());
-    // Keep shift for slide but primary are Space/Arrows
-    this.input.keyboard?.on('keydown-SHIFT', () => this.slide());
+    if (!this.input.keyboard) return;
+
+    this.upKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
+    this.downKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
+    this.wKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+    this.sKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+    this.jumpKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+
+    this.upKey.on('down', () => this.moveLane(-1));
+    this.wKey.on('down', () => this.moveLane(-1));
+    this.downKey.on('down', () => this.moveLane(1));
+    this.sKey.on('down', () => this.moveLane(1));
+    this.jumpKey.on('down', () => this.jump());
   }
 
   update(time: number, delta: number) {
-    if (!this.player.active) return;
+    if (!this.isGameActive || !this.player.active) return;
 
-    // Move Clouds
     this.clouds.children.iterate((cloud: any) => {
       cloud.x -= cloud.getData('speed') * delta * 0.1;
       if (cloud.x < -100) cloud.x = this.scale.width + 100;
       return true;
     });
     
-    // Update distance and score
     this.distance += this.speed * 0.05;
     this.score = Math.floor(this.distance) + (this.cookiesCollected * 100);
 
-    // Progressive speed increase
     if (this.distance > 0 && Math.floor(this.distance) % 2500 === 0) {
       this.speed += 0.2;
     }
 
-    // Move Obstacles & Cookies
     const moveFactor = this.speed * 0.06 * delta;
     this.obstacles.children.iterate((child: any) => {
       if (child) {
@@ -252,13 +234,13 @@ export class SweetSprintScene extends Phaser.Scene {
       return true;
     });
 
-    // Request new level segments from GenAI
     if (this.distance - this.lastObstacleDistance > this.segmentLength && !this.isGenerating) {
       this.requestNewSegment();
     }
   }
 
   private moveLane(dir: number) {
+    if (!this.isGameActive) return;
     const targetLane = Phaser.Math.Clamp(this.currentLane + dir, 0, 2);
     if (targetLane === this.currentLane) return;
 
@@ -277,7 +259,7 @@ export class SweetSprintScene extends Phaser.Scene {
   }
 
   private jump() {
-    if (this.player.getData('jumping') || this.player.getData('sliding')) return;
+    if (!this.isGameActive || this.player.getData('jumping')) return;
     this.player.setData('jumping', true);
     
     const originalY = this.laneYPositions[this.currentLane];
@@ -295,23 +277,6 @@ export class SweetSprintScene extends Phaser.Scene {
     });
   }
 
-  private slide() {
-    if (this.player.getData('jumping') || this.player.getData('sliding')) return;
-    this.player.setData('sliding', true);
-    
-    this.tweens.add({
-      targets: this.player,
-      scaleY: this.laneScales[this.currentLane] * 0.5,
-      duration: 200,
-      yoyo: true,
-      ease: 'Cubic.inOut',
-      onComplete: () => {
-        this.player.setData('sliding', false);
-        this.player.setScale(this.laneScales[this.currentLane]);
-      }
-    });
-  }
-
   private async requestNewSegment() {
     this.isGenerating = true;
     try {
@@ -324,7 +289,7 @@ export class SweetSprintScene extends Phaser.Scene {
       this.lastObstacleDistance = this.distance;
       this.placeObstacles(data.obstacles);
     } catch (e) {
-      // Basic generation fallback if flow fails
+      // Fallback
     } finally {
       this.isGenerating = false;
     }
@@ -354,13 +319,10 @@ export class SweetSprintScene extends Phaser.Scene {
         g.fillEllipse(0, 0, 50, 15);
         g.lineStyle(2, 0xffffff, 0.4);
         g.strokeEllipse(0, 0, 50, 15);
-      } else { // person
+      } else {
         g.fillStyle(0x95a5a6, 1);
         g.fillRect(-10, -50, 20, 40);
         g.fillCircle(0, -60, 10);
-        g.fillStyle(0x333333, 1);
-        g.fillRect(-10, -10, 8, 15);
-        g.fillRect(2, -10, 8, 15);
       }
       
       container.add(g);
@@ -374,7 +336,6 @@ export class SweetSprintScene extends Phaser.Scene {
       body.setSize(60, 60);
       body.setOffset(-30, -60);
 
-      // Procedural cookie placement
       if (Math.random() > 0.4) {
         this.createCookie(spawnX + 150, this.laneYPositions[laneIndex] - 40, laneIndex);
       }
@@ -389,7 +350,6 @@ export class SweetSprintScene extends Phaser.Scene {
     g.fillStyle(0x603813, 1);
     g.fillCircle(-5, -5, 3);
     g.fillCircle(5, 5, 3);
-    g.fillCircle(0, 8, 3);
     
     container.add(g);
     this.cookies.add(container);
@@ -400,25 +360,16 @@ export class SweetSprintScene extends Phaser.Scene {
     const body = container.body as Phaser.Physics.Arcade.Body;
     body.setSize(30, 30);
     body.setOffset(-15, -15);
-
-    this.tweens.add({
-      targets: container,
-      angle: 360,
-      duration: 2000,
-      repeat: -1
-    });
   }
 
   private handleCollision(player: any, obstacle: any) {
-    if (this.isInvulnerable || !this.player.active) return;
+    if (this.isInvulnerable || !this.isGameActive) return;
 
     const obstacleLane = obstacle.getData('lane');
     if (obstacleLane !== this.currentLane) return;
 
-    // Specific hit logic based on action
     const type = obstacle.getData('type');
     if (this.player.getData('jumping') && (type === 'pet' || type === 'waterPuddle')) return;
-    if (this.player.getData('sliding') && type === 'vehicle') return;
     
     obstacle.destroy();
     this.lives--;
@@ -456,6 +407,7 @@ export class SweetSprintScene extends Phaser.Scene {
   }
 
   private collectCookie(player: any, cookie: any) {
+    if (!this.isGameActive) return;
     const cookieLane = cookie.getData('lane');
     if (cookieLane !== this.currentLane) return;
 
@@ -471,12 +423,22 @@ export class SweetSprintScene extends Phaser.Scene {
   }
 
   private gameOver() {
+    this.isGameActive = false;
     this.physics.pause();
-    this.onUpdateLives(0);
     this.onGameOver(this.score, this.cookiesCollected);
   }
 
-  public pauseGame() { this.scene.pause(); }
-  public resumeGame() { this.scene.resume(); }
-  public restart() { this.scene.restart({ startPaused: false }); }
+  public pauseGame() { 
+    this.isGameActive = false;
+    this.physics.pause();
+  }
+  
+  public resumeGame() { 
+    this.isGameActive = true;
+    this.physics.resume();
+  }
+  
+  public restart() { 
+    this.scene.restart(); 
+  }
 }

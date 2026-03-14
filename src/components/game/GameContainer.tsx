@@ -71,6 +71,10 @@ export default function GameContainer() {
   const startGame = () => {
     setGameState('playing');
     setLives(2);
+    // Ensure the game canvas gets focus for keyboard events
+    const canvas = gameRef.current?.querySelector('canvas');
+    canvas?.focus();
+    
     const scene = phaserGame.current?.scene.getScene('SweetSprintScene') as SweetSprintScene;
     scene?.resumeGame();
   };
@@ -86,16 +90,20 @@ export default function GameContainer() {
   const resumeGame = () => {
     if (gameState === 'paused') {
       setGameState('playing');
+      const canvas = gameRef.current?.querySelector('canvas');
+      canvas?.focus();
       const scene = phaserGame.current?.scene.getScene('SweetSprintScene') as SweetSprintScene;
       scene?.resumeGame();
     }
   };
 
   const restartGame = () => {
-    const scene = phaserGame.current?.scene.getScene('SweetSprintScene') as SweetSprintScene;
-    scene?.restart();
     setGameState('playing');
     setLives(2);
+    const canvas = gameRef.current?.querySelector('canvas');
+    canvas?.focus();
+    const scene = phaserGame.current?.scene.getScene('SweetSprintScene') as SweetSprintScene;
+    scene?.restart();
   };
 
   const goHome = () => {
@@ -112,6 +120,7 @@ export default function GameContainer() {
       {/* Game Canvas Container */}
       <div 
         ref={gameRef} 
+        tabIndex={0}
         className={`w-full max-w-[800px] aspect-[4/3] shadow-2xl rounded-3xl overflow-hidden bg-sky-100 border-8 border-white transition-all ${gameState !== 'playing' ? 'blur-sm scale-[0.98]' : ''}`}
       />
 
@@ -129,7 +138,7 @@ export default function GameContainer() {
             </CardHeader>
             <CardContent className="flex flex-col gap-6 text-center pb-8">
               <p className="text-muted-foreground font-medium px-4">
-                Run across the three bridge levels! Use <b>ARROWS</b> or <b>W/S</b> to change levels and <b>Space</b> to jump.
+                Run across the three bridge levels! Use <b>UP/DOWN</b> or <b>W/S</b> to change levels and <b>Space</b> to jump.
               </p>
               <Button size="lg" onClick={startGame} className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-8 text-2xl rounded-2xl shadow-lg transform active:scale-95 transition-all">
                 <Play className="mr-2 h-8 w-8" /> START RUN
