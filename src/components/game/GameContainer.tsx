@@ -71,7 +71,6 @@ export default function GameContainer() {
   const startGame = () => {
     setGameState('playing');
     setLives(2);
-    // Ensure the game canvas gets focus for keyboard events
     const canvas = gameRef.current?.querySelector('canvas');
     canvas?.focus();
     
@@ -117,14 +116,12 @@ export default function GameContainer() {
 
   return (
     <div className="relative w-full h-screen flex flex-col items-center justify-center bg-[#E0F2FE] overflow-hidden p-4">
-      {/* Game Canvas Container */}
       <div 
         ref={gameRef} 
         tabIndex={0}
         className={`w-full max-w-[800px] aspect-[4/3] shadow-2xl rounded-3xl overflow-hidden bg-sky-100 border-8 border-white transition-all ${gameState !== 'playing' ? 'blur-sm scale-[0.98]' : ''}`}
       />
 
-      {/* Overlays */}
       {gameState === 'start' && (
         <div className="absolute inset-0 flex items-center justify-center z-10 bg-sky-900/20 backdrop-blur-md">
           <Card className="w-96 border-white border-4 shadow-2xl animate-in zoom-in-95 rounded-3xl">
@@ -138,7 +135,9 @@ export default function GameContainer() {
             </CardHeader>
             <CardContent className="flex flex-col gap-6 text-center pb-8">
               <p className="text-muted-foreground font-medium px-4">
-                Run across the three bridge levels! Use <b>UP/DOWN</b> or <b>W/S</b> to change levels and <b>Space</b> to jump.
+                Run across 3 bridge levels! <br/>
+                <b>UP/DOWN</b> to change levels. <br/>
+                <b>LEFT/RIGHT</b> to slide and dodge low obstacles.
               </p>
               <Button size="lg" onClick={startGame} className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-8 text-2xl rounded-2xl shadow-lg transform active:scale-95 transition-all">
                 <Play className="mr-2 h-8 w-8" /> START RUN
@@ -202,7 +201,6 @@ export default function GameContainer() {
         </div>
       )}
 
-      {/* HUD */}
       <div className="absolute top-12 left-0 right-0 flex justify-between px-12 z-0 pointer-events-none">
         <div className="flex gap-4">
           <div className="flex flex-col items-center bg-white/95 backdrop-blur px-6 py-2 rounded-2xl shadow-lg border-2 border-sky-100">

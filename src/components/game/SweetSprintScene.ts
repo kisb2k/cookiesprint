@@ -29,11 +29,14 @@ export class SweetSprintScene extends Phaser.Scene {
   private onGameOver: (score: number, cookies: number) => void;
   private onUpdateLives: (lives: number) => void;
 
-  private jumpKey!: Phaser.Input.Keyboard.Key;
   private upKey!: Phaser.Input.Keyboard.Key;
   private downKey!: Phaser.Input.Keyboard.Key;
+  private leftKey!: Phaser.Input.Keyboard.Key;
+  private rightKey!: Phaser.Input.Keyboard.Key;
   private wKey!: Phaser.Input.Keyboard.Key;
   private sKey!: Phaser.Input.Keyboard.Key;
+  private aKey!: Phaser.Input.Keyboard.Key;
+  private dKey!: Phaser.Input.Keyboard.Key;
 
   constructor(
     onGameOver: (score: number, cookies: number) => void,
@@ -102,22 +105,18 @@ export class SweetSprintScene extends Phaser.Scene {
   }
 
   private createBridgeTextures() {
-    // Generate 3 textures, one for each level's perspective
     this.laneScales.forEach((scale, index) => {
       const g = this.make.graphics({ x: 0, y: 0, add: false });
       const width = 200;
       const height = 60 * scale;
       
-      // Background
       g.fillStyle(0x333333, 1);
       g.fillRect(0, 0, width, height);
       
-      // Railings / Edges
       g.lineStyle(4 * scale, 0xdddddd, 1);
       g.lineBetween(0, 0, width, 0);
       g.lineBetween(0, height, width, height);
       
-      // Detail lines
       g.lineStyle(2 * scale, 0xffffff, 0.2);
       for (let i = 0; i < width; i += 50) {
         g.lineBetween(i, 0, i, height);
@@ -198,43 +197,48 @@ export class SweetSprintScene extends Phaser.Scene {
 
     this.upKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
     this.downKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
+    this.leftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT);
+    this.rightKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
+    
     this.wKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
     this.sKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
-    this.jumpKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.aKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+    this.dKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
 
     this.upKey.on('down', () => this.moveLane(-1));
     this.wKey.on('down', () => this.moveLane(-1));
     this.downKey.on('down', () => this.moveLane(1));
     this.sKey.on('down', () => this.moveLane(1));
-    this.jumpKey.on('down', () => this.jump());
+    
+    // Sliding logic
+    const startSlide = () => this.slide();
+    this.leftKey.on('down', startSlide);
+    this.rightKey.on('down', startSlide);
+    this.aKey.on('down', startSlide);
+    this.dKey.on('down', startSlide);
   }
 
   update(time: number, delta: number) {
     if (!this.isGameActive || !this.player.active) return;
 
-    // 1. Scroll Clouds
     this.clouds.children.iterate((cloud: any) => {
       cloud.x -= cloud.getData('speed') * delta * 0.1;
       if (cloud.x < -100) cloud.x = this.scale.width + 100;
       return true;
     });
     
-    // 2. Continuous Running Illusion: Scroll Bridge Decks
     const scrollBase = this.speed * 0.5 * delta * 0.1;
     this.bridgeDecks.forEach((deck, index) => {
       deck.tilePositionX += scrollBase * this.laneScales[index];
     });
 
-    // 3. Distance & Score
     this.distance += this.speed * 0.05;
     this.score = Math.floor(this.distance) + (this.cookiesCollected * 100);
 
-    // Speed increases slowly
     if (this.distance > 0 && Math.floor(this.distance) % 2500 === 0) {
       this.speed += 0.2;
     }
 
-    // 4. Move Obstacles & Cookies
     const moveFactor = this.speed * 0.06 * delta;
     this.obstacles.children.iterate((child: any) => {
       if (child) {
@@ -254,7 +258,6 @@ export class SweetSprintScene extends Phaser.Scene {
       return true;
     });
 
-    // 5. Generate New Segments
     if (this.distance - this.lastObstacleDistance > this.segmentLength && !this.isGenerating) {
       this.requestNewSegment();
     }
@@ -279,21 +282,23 @@ export class SweetSprintScene extends Phaser.Scene {
     });
   }
 
-  private jump() {
-    if (!this.isGameActive || this.player.getData('jumping')) return;
-    this.player.setData('jumping', true);
+  private slide() {
+    if (!this.isGameActive || this.player.getData('sliding')) return;
+    this.player.setData('sliding', true);
     
-    const originalY = this.laneYPositions[this.currentLane];
+    const originalScaleY = this.player.scaleY;
     
     this.tweens.add({
       targets: this.player,
-      y: originalY - 120 * this.laneScales[this.currentLane],
-      duration: 300,
+      scaleY: originalScaleY * 0.5,
+      y: this.player.y + 20,
+      duration: 400,
       yoyo: true,
-      ease: 'Sine.out',
+      ease: 'Cubic.out',
       onComplete: () => {
-        this.player.setData('jumping', false);
-        this.player.y = originalY;
+        this.player.setData('sliding', false);
+        this.player.scaleY = originalScaleY;
+        this.player.y = this.laneYPositions[this.currentLane];
       }
     });
   }
@@ -341,6 +346,7 @@ export class SweetSprintScene extends Phaser.Scene {
         g.lineStyle(2, 0xffffff, 0.4);
         g.strokeEllipse(0, 0, 50, 15);
       } else {
+        // Person
         g.fillStyle(0x95a5a6, 1);
         g.fillRect(-10, -50, 20, 40);
         g.fillCircle(0, -60, 10);
@@ -390,7 +396,10 @@ export class SweetSprintScene extends Phaser.Scene {
     if (obstacleLane !== this.currentLane) return;
 
     const type = obstacle.getData('type');
-    if (this.player.getData('jumping') && (type === 'pet' || type === 'waterPuddle')) return;
+    const isSliding = this.player.getData('sliding');
+    
+    // Some obstacles can be escaped by sliding
+    if (isSliding && (type === 'pet' || type === 'waterPuddle')) return;
     
     obstacle.destroy();
     this.lives--;
