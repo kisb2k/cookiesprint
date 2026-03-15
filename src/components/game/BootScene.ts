@@ -1,8 +1,8 @@
 import * as Phaser from 'phaser';
 
 /**
- * Generates illustrated-style game textures: player run, cookie, obstacles, parallax, particles.
- * Optional: place PNGs in public/assets/ to override (see public/assets/README.md).
+ * Generates illustrated-style game textures for multiple characters.
+ * Each character wears a Girl Scout vest (Green).
  */
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -14,7 +14,19 @@ export class BootScene extends Phaser.Scene {
     this.generateShadowTexture();
     this.generateCookieTexture();
     this.generateSparkleTexture();
-    this.generatePlayerRunFrames();
+    
+    // Character definitions
+    const characters = [
+      { id: 'arya', hair: 0x634433, shirt: 0x38bdf8 },      // Brown hair, Light Blue shirt
+      { id: 'emily', hair: 0xfde047, shirt: 0xf472b6 },     // Blonde hair, Pink shirt
+      { id: 'maggie', hair: 0x1e293b, shirt: 0xa855f7 },    // Black hair, Purple shirt
+      { id: 'charlotte', hair: 0xea580c, shirt: 0xfacc15 }  // Red hair, Yellow shirt
+    ];
+
+    characters.forEach(char => {
+      this.generatePlayerRunFrames(char.id, char.hair, char.shirt);
+    });
+
     this.generateObstacleTextures();
     this.generateParallaxTextures();
     this.generateCloudTexture();
@@ -44,8 +56,8 @@ export class BootScene extends Phaser.Scene {
     ctx.beginPath();
     ctx.ellipse(cx, cy, 24, 12, 0, 0, Math.PI * 2);
     ctx.fill();
-    if ('refresh' in canvasTex && typeof (canvasTex as { refresh: () => void }).refresh === 'function') {
-      (canvasTex as { refresh: () => void }).refresh();
+    if ('refresh' in canvasTex && typeof (canvasTex as any).refresh === 'function') {
+      (canvasTex as any).refresh();
     }
   }
 
@@ -78,8 +90,8 @@ export class BootScene extends Phaser.Scene {
     ctx.beginPath();
     ctx.arc(cx - 8, cy - 8, 6, 0, Math.PI * 2);
     ctx.fill();
-    if ('refresh' in canvasTex && typeof (canvasTex as { refresh: () => void }).refresh === 'function') {
-      (canvasTex as { refresh: () => void }).refresh();
+    if ('refresh' in canvasTex && typeof (canvasTex as any).refresh === 'function') {
+      (canvasTex as any).refresh();
     }
   }
 
@@ -90,75 +102,88 @@ export class BootScene extends Phaser.Scene {
     g.generateTexture('sparkle', 16, 16);
   }
 
-  private drawRunnerFrame(g: Phaser.GameObjects.Graphics, frameIndex: number) {
+  private drawRunnerFrame(g: Phaser.GameObjects.Graphics, frameIndex: number, hairColor: number, shirtColor: number) {
     const skin = 0xffdbac;
-    const shirtLight = 0x38bdf8;
-    const shirtDark = 0x0284c7;
+    const vestColor = 0x166534; // Girl Scout Green
     const pants = 0x334155;
     const outline = 0x1e293b;
     const legSwing = [0, 18, 28, 18, 0, -18][frameIndex % 6];
     const armSwing = [0, -22, -28, -22, 0, 22][frameIndex % 6];
     const cx = 28;
     const cy = 88;
-    const stroke = 2;
     const r = 5;
 
-    const drawOutline = () => {
-      g.lineStyle(stroke, outline, 1);
-      g.strokeCircle(cx, cy - 65, 15);
-      g.strokeRoundedRect(cx - 15, cy - 54, 30, 40, r);
-      g.strokeCircle(cx - 4, cy - 69, 2.5);
-      g.strokeCircle(cx + 4, cy - 69, 2.5);
-    };
-
+    // Head/Hair
+    g.fillStyle(hairColor, 1);
+    g.fillRoundedRect(cx - 16, cy - 82, 32, 25, 8);
     g.fillStyle(skin, 1);
     g.fillCircle(cx, cy - 65, 14);
-    g.fillGradientStyle(shirtLight, shirtLight, shirtDark, shirtDark, 1, 1, 1, 1);
+    
+    // Shirt (Base)
+    g.fillStyle(shirtColor, 1);
     g.fillRoundedRect(cx - 14, cy - 52, 28, 38, r);
-    g.fillStyle(shirtDark, 1);
+    
+    // Vest (Girl Scout Vest overlay)
+    g.fillStyle(vestColor, 1);
+    // Left side of vest
+    g.fillRoundedRect(cx - 14, cy - 52, 10, 38, { tl: r, bl: r, tr: 0, br: 0 });
+    // Right side of vest
+    g.fillRoundedRect(cx + 4, cy - 52, 10, 38, { tl: 0, bl: 0, tr: r, br: r });
+
+    // Arms
+    g.fillStyle(shirtColor, 1);
     g.fillRoundedRect(cx - 24 + (armSwing * 0.4), cy - 50, 10, 26, 3);
     g.fillRoundedRect(cx + 14 - (armSwing * 0.4), cy - 50, 10, 26, 3);
+    
+    // Pants
     g.fillStyle(pants, 1);
     g.fillRoundedRect(cx - 9, cy - 14 + legSwing * 0.3, 10, 30, 3);
     g.fillRoundedRect(cx - 1, cy - 14 - legSwing * 0.3, 10, 30, 3);
+    
+    // Eyes
     g.fillStyle(0x333333, 1);
-    g.fillCircle(cx - 4, cy - 68, 2.5);
-    g.fillCircle(cx + 4, cy - 68, 2.5);
-    drawOutline();
+    g.fillCircle(cx - 4, cy - 68, 2);
+    g.fillCircle(cx + 4, cy - 68, 2);
+
+    // Outline
+    g.lineStyle(2, outline, 1);
+    g.strokeCircle(cx, cy - 65, 15);
+    g.strokeRoundedRect(cx - 15, cy - 54, 30, 40, r);
   }
 
-  private generatePlayerRunFrames() {
+  private generatePlayerRunFrames(id: string, hair: number, shirt: number) {
     const frameWidth = 56;
     const frameHeight = 100;
     const numFrames = 6;
     const totalWidth = frameWidth * numFrames;
     const g = this.make.graphics({ x: 0, y: 0, add: false });
+    
     for (let i = 0; i < numFrames; i++) {
       g.clear();
-      this.drawRunnerFrame(g, i);
-      g.generateTexture(`player_run_${i}`, frameWidth, frameHeight);
+      this.drawRunnerFrame(g, i, hair, shirt);
+      g.generateTexture(`player_${id}_run_frame_${i}`, frameWidth, frameHeight);
     }
-    const key = 'player_run';
+    
+    const key = `player_${id}_run`;
     if (!this.textures.exists(key)) {
       const canvasTex = this.textures.createCanvas(key, totalWidth, frameHeight);
       const canvas = canvasTex.getSourceImage() as HTMLCanvasElement;
       const ctx = canvas.getContext('2d')!;
       for (let i = 0; i < numFrames; i++) {
-        const frameImg = this.textures.get(`player_run_${i}`).getSourceImage() as CanvasImageSource;
+        const frameImg = this.textures.get(`player_${id}_run_frame_${i}`).getSourceImage() as CanvasImageSource;
         ctx.drawImage(frameImg, i * frameWidth, 0);
       }
       const tex = this.textures.get(key);
       for (let i = 0; i < numFrames; i++) {
         tex.add(i, 0, i * frameWidth, 0, frameWidth, frameHeight);
       }
-      if ('refresh' in canvasTex && typeof (canvasTex as { refresh: () => void }).refresh === 'function') {
-        (canvasTex as { refresh: () => void }).refresh();
+      if ('refresh' in canvasTex && typeof (canvasTex as any).refresh === 'function') {
+        (canvasTex as any).refresh();
       }
     }
   }
 
   private generateObstacleTextures() {
-    // Vehicle: solid red body, white cab, blue windshield, black wheels
     const gw = 120;
     const gh = 70;
     const gV = this.make.graphics({ x: 0, y: 0, add: false });
@@ -180,7 +205,6 @@ export class BootScene extends Phaser.Scene {
     gV.fillCircle(92, 58, 6);
     gV.generateTexture('obstacle_vehicle', gw, gh);
 
-    // Pet: solid orange-brown body and head, dark ears, yellow collar
     const pw = 56;
     const ph = 50;
     const gP = this.make.graphics({ x: 0, y: 0, add: false });
@@ -201,7 +225,6 @@ export class BootScene extends Phaser.Scene {
     gP.fillRoundedRect(20, 16, 16, 4, 2);
     gP.generateTexture('obstacle_pet', pw, ph);
 
-    // Person: solid green jacket, navy cap, skin face, green pants
     const gPer = this.make.graphics({ x: 0, y: 0, add: false });
     const perW = 40;
     const perH = 90;
@@ -227,7 +250,6 @@ export class BootScene extends Phaser.Scene {
     gPer.fillRoundedRect(22, 66, 8, 24, 3);
     gPer.generateTexture('obstacle_person', perW, perH);
 
-    // Water puddle: solid cyan fill, lighter highlight
     const pudW = 80;
     const pudH = 28;
     const gPud = this.make.graphics({ x: 0, y: 0, add: false });
@@ -243,7 +265,6 @@ export class BootScene extends Phaser.Scene {
   private generateParallaxTextures() {
     const w = 800;
     const h = 220;
-
     const gFar = this.make.graphics({ x: 0, y: 0, add: false });
     gFar.fillGradientStyle(0x7dd3fc, 0x7dd3fc, 0x0ea5e9, 0x0ea5e9, 0.5, 0.5, 0, 1);
     gFar.fillRect(0, 0, w, h);
