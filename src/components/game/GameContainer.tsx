@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import * as Phaser from 'phaser';
+import { BootScene } from './BootScene';
 import { SweetSprintScene } from './SweetSprintScene';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Cookie, Play, RotateCcw, Heart, Pause, Home } from 'lucide-react';
+import { Cookie, Play, RotateCcw, Heart, Pause, Home, Volume2, VolumeX } from 'lucide-react';
+import { playSound, setMuted, loadMutePreference, type SoundEvent } from '@/lib/gameSound';
 
 const BridgeIcon = ({ className }: { className?: string }) => (
   <svg
@@ -32,7 +34,19 @@ export default function GameContainer() {
   const [score, setScore] = useState(0);
   const [cookies, setCookies] = useState(0);
   const [lives, setLives] = useState(2);
+  const [muted, setMutedState] = useState(false);
+  const [modalClosing, setModalClosing] = useState(false);
+  const [hudPulse, setHudPulse] = useState(false);
+  const [cookiePop, setCookiePop] = useState<number | null>(null);
   const phaserGame = useRef<Phaser.Game | null>(null);
+
+  useEffect(() => {
+    setMutedState(loadMutePreference());
+  }, []);
+
+  const handleSoundEvent = (event: SoundEvent) => {
+    playSound(event);
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -49,16 +63,20 @@ export default function GameContainer() {
         },
       },
       backgroundColor: '#E0F2FE',
-      scene: new SweetSprintScene(
-        (finalScore, finalCookies) => {
-          setScore(finalScore);
-          setCookies(finalCookies);
-          setGameState('gameover');
-        },
-        (currentLives) => setLives(currentLives),
-        (currentScore) => setScore(currentScore),
-        (currentCookies) => setCookies(currentCookies)
-      ),
+      scene: [
+        new BootScene(),
+        new SweetSprintScene(
+          (finalScore, finalCookies) => {
+            setScore(finalScore);
+            setCookies(finalCookies);
+            setGameState('gameover');
+          },
+          (currentLives) => setLives(currentLives),
+          (currentScore) => setScore(currentScore),
+          (currentCookies) => setCookies(currentCookies),
+          handleSoundEvent
+        ),
+      ],
     };
 
     phaserGame.current = new Phaser.Game(config);
@@ -68,16 +86,41 @@ export default function GameContainer() {
     };
   }, []);
 
+  // HUD pulse when score or cookies change
+  useEffect(() => {
+    setHudPulse(true);
+    const t = setTimeout(() => setHudPulse(false), 400);
+    return () => clearTimeout(t);
+  }, [score, cookies]);
+
+  // Cookie +1 pop when cookies increase
+  const prevCookies = useRef(0);
+  useEffect(() => {
+    if (cookies > prevCookies.current && gameState === 'playing') {
+      setCookiePop(cookies - prevCookies.current);
+      const t = setTimeout(() => {
+        setCookiePop(null);
+        prevCookies.current = cookies;
+      }, 700);
+      return () => clearTimeout(t);
+    }
+    prevCookies.current = cookies;
+  }, [cookies, gameState]);
+
   const startGame = () => {
-    setGameState('playing');
-    setLives(2);
-    setScore(0);
-    setCookies(0);
-    const canvas = gameRef.current?.querySelector('canvas');
-    canvas?.focus();
-    
-    const scene = phaserGame.current?.scene.getScene('SweetSprintScene') as SweetSprintScene;
-    scene?.resumeGame();
+    setModalClosing(true);
+    setTimeout(() => {
+      setGameState('playing');
+      setLives(2);
+      setScore(0);
+      setCookies(0);
+      prevCookies.current = 0;
+      setModalClosing(false);
+      const canvas = gameRef.current?.querySelector('canvas');
+      canvas?.focus();
+      const scene = phaserGame.current?.scene.getScene('SweetSprintScene') as SweetSprintScene;
+      scene?.resumeGame();
+    }, 280);
   };
 
   const pauseGame = () => {
@@ -103,6 +146,7 @@ export default function GameContainer() {
     setLives(2);
     setScore(0);
     setCookies(0);
+    prevCookies.current = 0;
     const canvas = gameRef.current?.querySelector('canvas');
     canvas?.focus();
     const scene = phaserGame.current?.scene.getScene('SweetSprintScene') as SweetSprintScene;
@@ -120,6 +164,15 @@ export default function GameContainer() {
     setScore(0);
     setCookies(0);
     setLives(2);
+    prevCookies.current = 0;
+  };
+
+  const toggleMute = () => {
+    setMutedState((prev) => {
+      const next = !prev;
+      setMuted(next);
+      return next;
+    });
   };
 
   return (
@@ -131,8 +184,8 @@ export default function GameContainer() {
       />
 
       {gameState === 'start' && (
-        <div className="absolute inset-0 flex items-center justify-center z-10 bg-sky-900/40 backdrop-blur-xl">
-          <Card className="w-[28rem] border-white border-4 shadow-2xl animate-in zoom-in-95 rounded-[3rem] overflow-hidden">
+        <div className={`absolute inset-0 flex items-center justify-center z-10 bg-sky-900/40 backdrop-blur-xl transition-opacity duration-300 ${modalClosing ? 'animate-modal-out' : 'animate-in fade-in duration-300'}`}>
+          <Card className={`w-[28rem] border-white border-4 shadow-2xl rounded-[3rem] overflow-hidden transition-all duration-300 ${modalClosing ? 'animate-modal-zoom-out' : 'animate-in zoom-in-95'}`}>
             <div className="bg-primary/5 p-8 text-center flex flex-col items-center gap-6">
               <div className="bg-primary p-6 rounded-[2rem] shadow-xl shadow-primary/20">
                 <BridgeIcon className="h-16 w-16 text-white" />
@@ -215,14 +268,21 @@ export default function GameContainer() {
         </div>
       )}
 
+      {/* Cookie +1 pop */}
+      {cookiePop !== null && (
+        <div className="absolute top-32 left-1/2 -translate-x-1/2 z-20 pointer-events-none animate-cookie-pop">
+          <span className="text-2xl font-headline text-amber-500 drop-shadow-lg">+{cookiePop}</span>
+        </div>
+      )}
+
       {/* Modern HUD */}
       <div className="absolute top-10 left-0 right-0 flex justify-between px-16 z-0 pointer-events-none">
         <div className="flex gap-4">
-          <div className="bg-white/90 backdrop-blur-xl px-8 py-3 rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center">
+          <div className={`bg-white/90 backdrop-blur-xl px-8 py-3 rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center transition-transform duration-200 ${hudPulse ? 'animate-hud-pulse' : ''}`}>
             <span className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-0.5">Metres</span>
             <span className="text-3xl font-headline text-sky-900 tabular-nums">{score}</span>
           </div>
-          <div className="bg-white/90 backdrop-blur-xl px-8 py-3 rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center">
+          <div className={`bg-white/90 backdrop-blur-xl px-8 py-3 rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center transition-transform duration-200 ${hudPulse ? 'animate-hud-pulse' : ''}`}>
             <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-0.5">Cookies</span>
             <span className="text-3xl font-headline text-orange-600 tabular-nums flex items-center">
               <Cookie className="mr-2 h-6 w-6 fill-orange-500 text-orange-600" /> {cookies}
@@ -242,6 +302,16 @@ export default function GameContainer() {
               ))}
             </div>
           </div>
+
+          <Button
+            type="button"
+            size="icon"
+            onClick={toggleMute}
+            className="rounded-2xl h-12 w-12 pointer-events-auto border-2 border-white/80 bg-white/90 hover:bg-white text-sky-800 shadow-lg"
+            aria-label={muted ? 'Unmute' : 'Mute'}
+          >
+            {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+          </Button>
           
           {gameState === 'playing' && (
             <Button 

@@ -3,10 +3,14 @@ import * as Phaser from 'phaser';
 export class SweetSprintScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Container;
   private currentLane: number = 1;
-  // Adjusted Y positions and scales for better separation and perspective
-  private laneYPositions: number[] = [200, 380, 560];
-  private laneScales: number[] = [0.5, 0.8, 1.3];
+  // Lane layout: Y = character container, scale = perspective. Runway width and deck height tuned so character meets bridge organically.
+  private laneYPositions: number[] = [220, 360, 500];
+  private laneScales: number[] = [0.55, 0.82, 1.15];
   private laneSpeedMultipliers: number[] = [0.6, 1.0, 1.8];
+  /** Texture tile width for bridge deck (tiles repeat across full screen). */
+  private readonly bridgeTextureWidth = 200;
+  /** Base deck height in texture (scaled per lane). Thinner deck = clearer running surface. */
+  private readonly bridgeDeckBaseHeight = 72;
   
   private score: number = 0;
   private distance: number = 0;
@@ -20,6 +24,10 @@ export class SweetSprintScene extends Phaser.Scene {
   private obstacles!: Phaser.Physics.Arcade.Group;
   private cookies!: Phaser.Physics.Arcade.Group;
   private particles!: Phaser.GameObjects.Particles.ParticleEmitter;
+  // Tracks how long the player has stayed in the same lane (ms)
+  private laneDwellTimeMs: number = 0;
+  private lastLaneIndex: number = 1;
+  private lanePressureCooldownMs: number = 0;
   
   private lastSpawnDistance: number = 0;
   private spawnInterval: number = 250; 
@@ -32,6 +40,13 @@ export class SweetSprintScene extends Phaser.Scene {
   private onUpdateLives: (lives: number) => void;
   private onUpdateScore: (score: number) => void;
   private onUpdateCookies: (cookies: number) => void;
+  private onSoundEvent?: (event: 'jump' | 'slide' | 'cookie' | 'hit' | 'gameover') => void;
+
+  private parallaxFar!: Phaser.GameObjects.TileSprite;
+  private parallaxMid!: Phaser.GameObjects.TileSprite;
+  private cookieCollectEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private shakeAmount: number = 0;
+  private shakeOrigin: { x: number; y: number } = { x: 0, y: 0 };
 
   private upKey!: Phaser.Input.Keyboard.Key;
   private downKey!: Phaser.Input.Keyboard.Key;
@@ -42,13 +57,15 @@ export class SweetSprintScene extends Phaser.Scene {
     onGameOver: (score: number, cookies: number) => void,
     onUpdateLives: (lives: number) => void,
     onUpdateScore: (score: number) => void,
-    onUpdateCookies: (cookies: number) => void
+    onUpdateCookies: (cookies: number) => void,
+    onSoundEvent?: (event: 'jump' | 'slide' | 'cookie' | 'hit' | 'gameover') => void
   ) {
     super('SweetSprintScene');
     this.onGameOver = onGameOver;
     this.onUpdateLives = onUpdateLives;
     this.onUpdateScore = onUpdateScore;
     this.onUpdateCookies = onUpdateCookies;
+    this.onSoundEvent = onSoundEvent;
   }
 
   init() {
@@ -62,6 +79,9 @@ export class SweetSprintScene extends Phaser.Scene {
     this.lastSpawnDistance = 0;
     this.isGameActive = false;
     this.bridgeDecks = [];
+    this.laneDwellTimeMs = 0;
+    this.lastLaneIndex = this.currentLane;
+    this.lanePressureCooldownMs = 0;
   }
 
   create() {
@@ -72,6 +92,18 @@ export class SweetSprintScene extends Phaser.Scene {
     sky.fillGradientStyle(0x7dd3fc, 0x7dd3fc, 0xbae6fd, 0xbae6fd, 1);
     sky.fillRect(0, 0, width, height);
 
+    // Parallax layers (textures from BootScene)
+    if (this.textures.exists('parallax_far')) {
+      this.parallaxFar = this.add.tileSprite(width / 2, 100, width, 200, 'parallax_far');
+      this.parallaxFar.setDepth(1);
+      this.parallaxFar.setOrigin(0.5, 0);
+    }
+    if (this.textures.exists('parallax_mid')) {
+      this.parallaxMid = this.add.tileSprite(width / 2, 180, width, 200, 'parallax_mid');
+      this.parallaxMid.setDepth(3);
+      this.parallaxMid.setOrigin(0.5, 0);
+    }
+
     this.createDistantBridge();
 
     // Clouds
@@ -80,14 +112,15 @@ export class SweetSprintScene extends Phaser.Scene {
       this.createCloud(Phaser.Math.Between(0, width), Phaser.Math.Between(30, 120));
     }
 
-    // Bridge Decks
+    // Bridge Decks: full screen width, positioned so top surface aligns with character feet
     this.createBridgeTextures();
-    this.laneYPositions.forEach((y, index) => {
-      const deckHeight = Math.round(160 * this.laneScales[index]); 
-      const tileSprite = this.add.tileSprite(width / 2, y, width, deckHeight, `bridge_deck_${index}`);
+    this.laneYPositions.forEach((laneY, index) => {
+      const scale = this.laneScales[index];
+      const deckHeight = Math.round(this.bridgeDeckBaseHeight * scale);
+      const feetY = laneY - 48 * scale;
+      const tileSprite = this.add.tileSprite(width / 2, feetY, width, deckHeight, `bridge_deck_${index}`);
       tileSprite.setDepth(10 + index * 10);
-      // Origin slightly adjusted for better visual alignment
-      tileSprite.setOrigin(0.5, 0.4);
+      tileSprite.setOrigin(0.5, 0);
       this.bridgeDecks.push(tileSprite);
     });
 
@@ -102,6 +135,29 @@ export class SweetSprintScene extends Phaser.Scene {
       blendMode: 'ADD'
     });
     this.particles.stop();
+
+    // Cookie collect burst (sparkle texture from BootScene)
+    if (this.textures.exists('sparkle')) {
+      this.cookieCollectEmitter = this.add.particles(0, 0, 'sparkle', {
+        speed: { min: 80, max: 180 },
+        scale: { start: 0.8, end: 0 },
+        alpha: { start: 1, end: 0 },
+        lifespan: 400,
+        frequency: -1,
+        blendMode: 'ADD'
+      });
+      this.cookieCollectEmitter.stop();
+    }
+
+    // Player run animation (from BootScene texture)
+    if (this.textures.exists('player_run')) {
+      this.anims.create({
+        key: 'run',
+        frames: this.anims.generateFrameNumbers('player_run', { start: 0, end: 3 }),
+        frameRate: 12,
+        repeat: -1
+      });
+    }
 
     this.obstacles = this.physics.add.group();
     this.cookies = this.physics.add.group();
@@ -138,35 +194,31 @@ export class SweetSprintScene extends Phaser.Scene {
   }
 
   private createBridgeTextures() {
-    const p = this.make.graphics({ x: 0, y: 0, add: false });
-    p.fillStyle(0xffffff, 1);
-    p.fillCircle(4, 4, 4);
-    p.generateTexture('dust', 8, 8);
-
+    // dust texture is created in BootScene. Deck texture tiles across full screen width.
     this.laneScales.forEach((scale, index) => {
       const g = this.make.graphics({ x: 0, y: 0, add: false });
-      const textureWidth = 200;
-      const textureHeight = Math.round(160 * scale);
+      const textureWidth = this.bridgeTextureWidth;
+      const textureHeight = Math.round(this.bridgeDeckBaseHeight * scale);
       
       // Main Deck
       g.fillStyle(0x334155, 1);
       g.fillRect(0, 0, textureWidth, textureHeight);
       
-      // Railing Top
+      // Railing Top (running surface edge)
       g.fillStyle(0x475569, 1);
-      g.fillRect(0, 0, textureWidth, Math.round(12 * scale));
+      g.fillRect(0, 0, textureWidth, Math.max(4, Math.round(8 * scale)));
       
       // Center Line
       g.fillStyle(0x475569, 0.5);
       g.fillRect(0, textureHeight / 2 - Math.round(2 * scale), textureWidth, Math.round(4 * scale));
       
-      // Side Shadow
+      // Side Shadow (bottom edge)
       g.fillStyle(0x1e293b, 1);
-      g.fillRect(0, textureHeight - Math.round(10 * scale), textureWidth, Math.round(10 * scale));
+      g.fillRect(0, textureHeight - Math.round(6 * scale), textureWidth, Math.round(6 * scale));
       
       // Grid Detail
-      g.lineStyle(Math.round(3 * scale), 0x64748b, 0.4);
-      for (let i = 0; i < textureWidth; i += 50) {
+      g.lineStyle(Math.round(2 * scale), 0x64748b, 0.4);
+      for (let i = 0; i < textureWidth; i += 40) {
         g.lineBetween(i, 0, i, textureHeight);
       }
       
@@ -191,28 +243,37 @@ export class SweetSprintScene extends Phaser.Scene {
   private createPlayer() {
     this.player = this.add.container(150, this.laneYPositions[this.currentLane]);
     this.player.setDepth(15 + this.currentLane * 10);
-    const skinColor = 0xffdbac;
-    const shirtColor = 0x0ea5e9;
-    const pantsColor = 0x334155;
-    
-    // Character body parts
-    const head = this.add.arc(0, -65, 12, 0, 360, false, skinColor);
-    const torso = this.add.rectangle(0, -35, 24, 35, shirtColor);
-    const lArm = this.add.rectangle(-15, -40, 8, 22, shirtColor);
-    const rArm = this.add.rectangle(15, -40, 8, 22, shirtColor);
-    const lLeg = this.add.rectangle(-6, -10, 10, 25, pantsColor);
-    const rLeg = this.add.rectangle(6, -10, 10, 25, pantsColor);
-    const lEye = this.add.circle(4, -68, 2, 0x333333);
-    const rEye = this.add.circle(8, -68, 2, 0x333333);
-    this.player.add([lLeg, rLeg, lArm, rArm, torso, head, lEye, rEye]);
+
+    if (this.textures.exists('shadow') && this.textures.exists('player_run')) {
+      // Sprite-based player with shadow
+      const shadow = this.add.sprite(0, 28, 'shadow');
+      shadow.setOrigin(0.5, 0.5);
+      this.player.add(shadow);
+      const runner = this.add.sprite(0, -48, 'player_run', 0);
+      runner.setOrigin(0.5, 1);
+      if (this.anims.exists('run')) runner.play('run');
+      this.player.add(runner);
+    } else {
+      // Fallback: graphics-based player
+      const skinColor = 0xffdbac;
+      const shirtColor = 0x0ea5e9;
+      const pantsColor = 0x334155;
+      const head = this.add.arc(0, -65, 12, 0, 360, false, skinColor);
+      const torso = this.add.rectangle(0, -35, 24, 35, shirtColor);
+      const lArm = this.add.rectangle(-15, -40, 8, 22, shirtColor);
+      const rArm = this.add.rectangle(15, -40, 8, 22, shirtColor);
+      const lLeg = this.add.rectangle(-6, -10, 10, 25, pantsColor);
+      const rLeg = this.add.rectangle(6, -10, 10, 25, pantsColor);
+      const lEye = this.add.circle(4, -68, 2, 0x333333);
+      const rEye = this.add.circle(8, -68, 2, 0x333333);
+      this.player.add([lLeg, rLeg, lArm, rArm, torso, head, lEye, rEye]);
+      this.tweens.add({ targets: lLeg, angle: { from: -35, to: 35 }, duration: 250, yoyo: true, repeat: -1 });
+      this.tweens.add({ targets: rLeg, angle: { from: 35, to: -35 }, duration: 250, yoyo: true, repeat: -1 });
+      this.tweens.add({ targets: lArm, angle: { from: 45, to: -45 }, duration: 250, yoyo: true, repeat: -1 });
+      this.tweens.add({ targets: rArm, angle: { from: -45, to: 45 }, duration: 250, yoyo: true, repeat: -1 });
+    }
+
     this.player.setScale(this.laneScales[this.currentLane]);
-
-    // Running animations
-    this.tweens.add({ targets: lLeg, angle: { from: -35, to: 35 }, duration: 250, yoyo: true, repeat: -1 });
-    this.tweens.add({ targets: rLeg, angle: { from: 35, to: -35 }, duration: 250, yoyo: true, repeat: -1 });
-    this.tweens.add({ targets: lArm, angle: { from: 45, to: -45 }, duration: 250, yoyo: true, repeat: -1 });
-    this.tweens.add({ targets: rArm, angle: { from: -45, to: 45 }, duration: 250, yoyo: true, repeat: -1 });
-
     this.physics.add.existing(this.player);
     const bodyPhys = this.player.body as Phaser.Physics.Arcade.Body;
     bodyPhys.setSize(30, 80);
@@ -246,6 +307,29 @@ export class SweetSprintScene extends Phaser.Scene {
 
     this.particles.start();
     this.particles.follow = this.player;
+
+    // Screen shake
+    if (this.shakeAmount > 0) {
+      const cam = this.cameras.main;
+      this.shakeOrigin ??= { x: cam.scrollX, y: cam.scrollY };
+      cam.setScroll(
+        this.shakeOrigin.x + (Math.random() - 0.5) * 12,
+        this.shakeOrigin.y + (Math.random() - 0.5) * 12
+      );
+      this.shakeAmount -= delta;
+      if (this.shakeAmount <= 0) {
+        cam.setScroll(this.shakeOrigin.x, this.shakeOrigin.y);
+        this.shakeOrigin = { x: 0, y: 0 };
+      }
+    }
+
+    // Parallax layers
+    if (this.parallaxFar) {
+      this.parallaxFar.tilePositionX += this.baseSpeed * 0.02 * delta * 0.05;
+    }
+    if (this.parallaxMid) {
+      this.parallaxMid.tilePositionX += this.baseSpeed * 0.04 * delta * 0.05;
+    }
 
     // Distant background movement
     this.distantBridge.tilePositionX += this.baseSpeed * 0.1 * delta * 0.05;
@@ -291,6 +375,9 @@ export class SweetSprintScene extends Phaser.Scene {
       return true;
     });
 
+    // Lane dwell tracking: if player camps in one lane for too long, spawn a pressure obstacle
+    this.updateLaneDwell(delta);
+
     // Ensure at least 1 obstacle is always on screen or being spawned
     const activeObstacles = this.obstacles.countActive();
     if (activeObstacles === 0 || (this.distance - this.lastSpawnDistance > this.spawnInterval)) {
@@ -322,6 +409,7 @@ export class SweetSprintScene extends Phaser.Scene {
   private jump() {
     if (!this.isGameActive || this.player.getData('jumping')) return;
     this.player.setData('jumping', true);
+    this.onSoundEvent?.('jump');
     
     this.tweens.add({
       targets: this.player,
@@ -339,6 +427,7 @@ export class SweetSprintScene extends Phaser.Scene {
   private slide() {
     if (!this.isGameActive || this.player.getData('sliding') || this.player.getData('jumping')) return;
     this.player.setData('sliding', true);
+    this.onSoundEvent?.('slide');
     this.tweens.add({
       targets: this.player,
       scaleY: this.laneScales[this.currentLane] * 0.4,
@@ -352,6 +441,54 @@ export class SweetSprintScene extends Phaser.Scene {
         this.player.y = this.laneYPositions[this.currentLane];
       }
     });
+  }
+
+  /**
+   * Tracks how long the player stays in the same lane.
+   * If they remain in one lane for more than 1.5 seconds, and there isn't already
+   * a near obstacle in that lane, spawn a \"pressure\" obstacle ahead of them.
+   */
+  private updateLaneDwell(delta: number) {
+    if (!this.isGameActive) return;
+
+    if (this.currentLane !== this.lastLaneIndex) {
+      this.lastLaneIndex = this.currentLane;
+      this.laneDwellTimeMs = 0;
+      return;
+    }
+
+    this.laneDwellTimeMs += delta;
+    if (this.lanePressureCooldownMs > 0) {
+      this.lanePressureCooldownMs -= delta;
+    }
+
+    // Only trigger if player has camped longer than 1.5s and cooldown elapsed
+    if (this.laneDwellTimeMs < 1500 || this.lanePressureCooldownMs > 0) {
+      return;
+    }
+
+    const lane = this.currentLane;
+    // Check for an existing obstacle already reasonably close in this lane
+    let hasNearby = false;
+    this.obstacles.children.iterate((child: any) => {
+      if (!child || !child.active) return true;
+      if (child.getData('lane') !== lane) return true;
+      // If an obstacle is in front of the player and not too far away, skip spawning
+      if (child.x > 200 && child.x < 700) {
+        hasNearby = true;
+        return false;
+      }
+      return true;
+    });
+
+    if (!hasNearby) {
+      const type = ['vehicle', 'pet', 'person', 'waterPuddle'][Phaser.Math.Between(0, 3)];
+      this.createObstacle(lane, type, 900);
+    }
+
+    // Reset dwell timer and start a short cooldown so we don't flood obstacles
+    this.laneDwellTimeMs = 0;
+    this.lanePressureCooldownMs = 800;
   }
 
   private spawnObstacleSet() {
@@ -371,13 +508,22 @@ export class SweetSprintScene extends Phaser.Scene {
     const cookieCount = Phaser.Math.Between(1, 2);
     for (let j = 0; j < cookieCount; j++) {
       let cookieLane = Phaser.Math.Between(0, 2);
-      this.createCookie(900 + Phaser.Math.Between(100, 600), this.laneYPositions[cookieLane] - 40, cookieLane);
+      const cookieSurfaceY = this.laneYPositions[cookieLane] - 48 * this.laneScales[cookieLane];
+      this.createCookie(900 + Phaser.Math.Between(100, 600), cookieSurfaceY - 8, cookieLane);
     }
   }
 
   private createObstacle(laneIdx: number, type: string, x: number) {
-    const spawnY = this.laneYPositions[laneIdx] + 10;
+    const surfaceY = this.laneYPositions[laneIdx] - 48 * this.laneScales[laneIdx];
+    const spawnY = surfaceY + 22;
     const container = this.add.container(x, spawnY);
+    // Shadow under obstacle
+    if (this.textures.exists('shadow')) {
+      const shadow = this.add.sprite(0, 25, 'shadow');
+      shadow.setOrigin(0.5, 0.5);
+      shadow.setScale(1.2);
+      container.add(shadow);
+    }
     const g = this.add.graphics();
     
     if (type === 'vehicle') {
@@ -422,17 +568,26 @@ export class SweetSprintScene extends Phaser.Scene {
 
   private createCookie(x: number, y: number, lane: number) {
     const container = this.add.container(x, y);
-    const g = this.add.graphics();
-    g.fillStyle(0xf59e0b, 0.3);
-    g.fillCircle(0, 0, 22);
-    g.fillStyle(0xd97706, 1);
-    g.fillCircle(0, 0, 16);
-    g.fillStyle(0x451a03, 1);
-    g.fillCircle(-6, -4, 4);
-    g.fillCircle(4, 5, 3);
-    g.fillCircle(5, -6, 2);
-    
-    container.add(g);
+    if (this.textures.exists('cookie') && this.textures.exists('shadow')) {
+      const shadow = this.add.sprite(0, 20, 'shadow');
+      shadow.setOrigin(0.5, 0.5);
+      shadow.setScale(0.6);
+      container.add(shadow);
+      const cookieSprite = this.add.sprite(0, 0, 'cookie');
+      cookieSprite.setOrigin(0.5, 0.5);
+      container.add(cookieSprite);
+    } else {
+      const g = this.add.graphics();
+      g.fillStyle(0xf59e0b, 0.3);
+      g.fillCircle(0, 0, 22);
+      g.fillStyle(0xd97706, 1);
+      g.fillCircle(0, 0, 16);
+      g.fillStyle(0x451a03, 1);
+      g.fillCircle(-6, -4, 4);
+      g.fillCircle(4, 5, 3);
+      g.fillCircle(5, -6, 2);
+      container.add(g);
+    }
     container.setData('lane', lane);
     container.setDepth(20 + lane * 10);
     container.setScale(this.laneScales[lane]);
@@ -465,6 +620,7 @@ export class SweetSprintScene extends Phaser.Scene {
     obstacle.destroy();
     this.lives--;
     this.onUpdateLives(this.lives);
+    this.onSoundEvent?.('hit');
 
     if (this.lives <= 0) {
       this.gameOver();
@@ -477,6 +633,8 @@ export class SweetSprintScene extends Phaser.Scene {
     this.isInvulnerable = true;
     const oldSpeed = this.baseSpeed;
     this.baseSpeed = Math.max(4, this.baseSpeed * 0.4);
+    this.shakeOrigin = { x: this.cameras.main.scrollX, y: this.cameras.main.scrollY };
+    this.shakeAmount = 180;
 
     this.tweens.add({
       targets: this.player,
@@ -503,9 +661,17 @@ export class SweetSprintScene extends Phaser.Scene {
     const lane = cookie.getData('lane');
     if (lane !== this.currentLane) return;
 
+    const collectX = cookie.x;
+    const collectY = cookie.y;
     this.cookiesCollected++;
     this.onUpdateCookies(this.cookiesCollected);
+    this.onSoundEvent?.('cookie');
     cookie.destroy();
+
+    if (this.cookieCollectEmitter) {
+      this.cookieCollectEmitter.setPosition(collectX, collectY);
+      this.cookieCollectEmitter.explode(16);
+    }
     
     this.tweens.add({
       targets: this.player,
@@ -518,6 +684,7 @@ export class SweetSprintScene extends Phaser.Scene {
   private gameOver() {
     this.isGameActive = false;
     this.physics.pause();
+    this.onSoundEvent?.('gameover');
     this.onGameOver(this.score, this.cookiesCollected);
   }
 
