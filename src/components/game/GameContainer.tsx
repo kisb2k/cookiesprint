@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -18,7 +19,7 @@ import { BootScene } from './BootScene';
 import { SweetSprintScene } from './SweetSprintScene';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Cookie, Play, RotateCcw, Heart, Pause, Home, Volume2, VolumeX } from 'lucide-react';
+import { Cookie, Play, RotateCcw, Heart, Pause, Home, Volume2, VolumeX, Maximize, Minimize } from 'lucide-react';
 import { playSound, setMuted, loadMutePreference, type SoundEvent } from '@/lib/gameSound';
 
 const BridgeIcon = ({ className }: { className?: string }) => (
@@ -40,12 +41,14 @@ const BridgeIcon = ({ className }: { className?: string }) => (
 );
 
 export default function GameContainer() {
+  const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<HTMLDivElement>(null);
   const [gameState, setGameState] = useState<'start' | 'playing' | 'paused' | 'gameover'>('start');
   const [score, setScore] = useState(0);
   const [cookies, setCookies] = useState(0);
   const [lives, setLives] = useState(2);
   const [muted, setMutedState] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [modalClosing, setModalClosing] = useState(false);
   const [hudPulse, setHudPulse] = useState(false);
   const [cookiePop, setCookiePop] = useState<number | null>(null);
@@ -54,6 +57,12 @@ export default function GameContainer() {
 
   useEffect(() => {
     setMutedState(loadMutePreference());
+    
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
   const handleSoundEvent = (event: SoundEvent) => {
@@ -122,6 +131,17 @@ export default function GameContainer() {
     }
     prevCookies.current = cookies;
   }, [cookies, gameState]);
+
+  const toggleFullscreen = () => {
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().catch((err) => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
 
   const startGame = () => {
     setModalClosing(true);
@@ -192,11 +212,18 @@ export default function GameContainer() {
   };
 
   return (
-    <div className="relative w-full min-h-dvh flex flex-col items-center justify-center bg-sky-50 overflow-hidden p-2 sm:p-4 safe-area-inset">
+    <div 
+      ref={containerRef}
+      className={`relative w-full min-h-dvh flex flex-col items-center justify-center bg-sky-50 overflow-hidden safe-area-inset transition-all duration-300 ${isFullscreen ? 'p-0' : 'p-2 sm:p-4'}`}
+    >
       <div 
         ref={gameRef} 
         tabIndex={0}
-        className={`w-full max-w-[800px] aspect-[4/3] max-h-[calc(100dvh-2rem)] shadow-2xl rounded-xl sm:rounded-[2rem] overflow-hidden bg-white border-4 sm:border-8 border-white transition-all touch-none ${gameState !== 'playing' ? 'blur-md scale-[0.98]' : 'scale-100'}`}
+        className={`w-full transition-all duration-300 touch-none ${
+          isFullscreen 
+            ? 'h-full max-w-none rounded-none border-0' 
+            : 'max-w-[800px] aspect-[4/3] max-h-[calc(100dvh-2rem)] shadow-2xl rounded-xl sm:rounded-[2rem] border-4 sm:border-8 border-white'
+        } bg-white overflow-hidden ${gameState !== 'playing' ? 'blur-md scale-[0.98]' : 'scale-100'}`}
         style={{ touchAction: 'none' }}
       />
 
@@ -293,7 +320,7 @@ export default function GameContainer() {
       )}
 
       {/* Modern HUD - touch-friendly min tap targets (44px) */}
-      <div className="absolute top-4 sm:top-10 left-0 right-0 flex justify-between px-4 sm:px-16 z-0 pointer-events-none">
+      <div className={`absolute ${isFullscreen ? 'top-2 sm:top-6' : 'top-4 sm:top-10'} left-0 right-0 flex justify-between px-4 sm:px-16 z-0 pointer-events-none`}>
         <div className="flex gap-2 sm:gap-4">
           <div className={`bg-white/90 backdrop-blur-xl px-4 sm:px-8 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center min-w-[60px] sm:min-w-0 transition-transform duration-200 ${hudPulse ? 'animate-hud-pulse' : ''}`}>
             <span className="text-[9px] sm:text-[10px] font-black text-sky-400 uppercase tracking-widest mb-0.5">Metres</span>
@@ -320,15 +347,27 @@ export default function GameContainer() {
             </div>
           </div>
 
-          <Button
-            type="button"
-            size="icon"
-            onClick={toggleMute}
-            className="rounded-xl sm:rounded-2xl h-11 w-11 sm:h-12 sm:w-12 min-h-[44px] min-w-[44px] pointer-events-auto border-2 border-white/80 bg-white/90 hover:bg-white text-sky-800 shadow-lg touch-manipulation"
-            aria-label={muted ? 'Unmute' : 'Mute'}
-          >
-            {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              size="icon"
+              onClick={toggleMute}
+              className="rounded-xl sm:rounded-2xl h-11 w-11 sm:h-12 sm:w-12 min-h-[44px] min-w-[44px] pointer-events-auto border-2 border-white/80 bg-white/90 hover:bg-white text-sky-800 shadow-lg touch-manipulation"
+              aria-label={muted ? 'Unmute' : 'Mute'}
+            >
+              {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+            </Button>
+            
+            <Button
+              type="button"
+              size="icon"
+              onClick={toggleFullscreen}
+              className="rounded-xl sm:rounded-2xl h-11 w-11 sm:h-12 sm:w-12 min-h-[44px] min-w-[44px] pointer-events-auto border-2 border-white/80 bg-white/90 hover:bg-white text-sky-800 shadow-lg touch-manipulation"
+              aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+            >
+              {isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
+            </Button>
+          </div>
           
           {gameState === 'playing' && (
             <Button 
