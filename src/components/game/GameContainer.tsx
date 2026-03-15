@@ -383,53 +383,53 @@ export default function GameContainer() {
       )}
 
       {/* HUD and Controls Layer */}
-      <div className={`absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-2 sm:p-6 safe-area-inset`}>
+      <div className={`absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-2 sm:p-4 safe-area-inset`}>
         {/* Top HUD */}
         <div className="flex justify-between items-start w-full">
-          <div className="flex gap-2 sm:gap-4">
-            <div className={`bg-white/90 backdrop-blur-xl px-3 sm:px-8 py-1.5 sm:py-3 rounded-lg sm:rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center min-w-[50px] sm:min-w-0 transition-transform duration-200 ${hudPulse ? 'animate-hud-pulse' : ''}`}>
-              <span className="text-[8px] sm:text-[10px] font-black text-sky-400 uppercase tracking-widest mb-0.5">Metres</span>
-              <span className="text-base sm:text-3xl font-headline text-sky-900 tabular-nums">{score}</span>
+          <div className="flex gap-2 sm:gap-3">
+            <div className={`bg-white/70 backdrop-blur-lg px-2 sm:px-6 py-1 sm:py-2 rounded-lg sm:rounded-xl shadow-lg border border-white/40 flex flex-col items-center min-w-[45px] sm:min-w-0 transition-transform duration-200 ${hudPulse ? 'animate-hud-pulse' : ''}`}>
+              <span className="text-[7px] sm:text-[9px] font-black text-sky-500/80 uppercase tracking-widest mb-0.5">Metres</span>
+              <span className="text-sm sm:text-2xl font-headline text-sky-900 tabular-nums leading-tight">{score}</span>
             </div>
-            <div className={`bg-white/90 backdrop-blur-xl px-3 sm:px-8 py-1.5 sm:py-3 rounded-lg sm:rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center min-w-[50px] sm:min-w-0 transition-transform duration-200 ${hudPulse ? 'animate-hud-pulse' : ''}`}>
-              <span className="text-[8px] sm:text-[10px] font-black text-orange-400 uppercase tracking-widest mb-0.5">Cookies</span>
-              <span className="text-base sm:text-3xl font-headline text-orange-600 tabular-nums flex items-center">
-                <Cookie className="mr-1 sm:mr-2 h-3 w-3 sm:h-6 sm:w-6 fill-orange-500 text-orange-600" /> {cookies}
+            <div className={`bg-white/70 backdrop-blur-lg px-2 sm:px-6 py-1 sm:py-2 rounded-lg sm:rounded-xl shadow-lg border border-white/40 flex flex-col items-center min-w-[45px] sm:min-w-0 transition-transform duration-200 ${hudPulse ? 'animate-hud-pulse' : ''}`}>
+              <span className="text-[7px] sm:text-[9px] font-black text-orange-500/80 uppercase tracking-widest mb-0.5">Cookies</span>
+              <span className="text-sm sm:text-2xl font-headline text-orange-600 tabular-nums flex items-center leading-tight">
+                <Cookie className="mr-1 sm:mr-2 h-3 w-3 sm:h-5 sm:w-5 fill-orange-500 text-orange-600" /> {cookies}
               </span>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 items-center sm:items-start">
-            <div className="bg-white/90 backdrop-blur-xl px-3 sm:px-8 py-1.5 sm:py-3 rounded-lg sm:rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center">
-              <span className="text-[8px] sm:text-[10px] font-black text-red-400 uppercase tracking-widest mb-1 sm:mb-1.5">Health</span>
-              <div className="flex gap-1 sm:gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-center sm:items-start">
+            <div className="bg-white/70 backdrop-blur-lg px-2 sm:px-6 py-1 sm:py-2 rounded-lg sm:rounded-xl shadow-lg border border-white/40 flex flex-col items-center">
+              <span className="text-[7px] sm:text-[9px] font-black text-red-500/80 uppercase tracking-widest mb-0.5 sm:mb-1">Health</span>
+              <div className="flex gap-1 sm:gap-1.5">
                 {[...Array(2)].map((_, i) => (
                   <Heart 
                     key={i} 
-                    className={`h-4 w-4 sm:h-6 sm:w-6 transition-all duration-300 ${i < lives ? 'fill-red-500 text-red-500 scale-100' : 'text-slate-200 scale-75'}`} 
+                    className={`h-3 w-3 sm:h-5 sm:w-5 transition-all duration-300 ${i < lives ? 'fill-red-500 text-red-500 scale-100' : 'text-slate-300 scale-75'}`} 
                   />
                 ))}
               </div>
             </div>
             
-            <div className="flex flex-row sm:flex-col gap-2">
+            <div className="flex flex-row sm:flex-col gap-1.5">
               <Button
                 type="button"
                 size="icon"
                 onClick={toggleMute}
-                className="rounded-lg sm:rounded-2xl h-9 w-9 sm:h-12 sm:w-12 pointer-events-auto border-2 border-white/80 bg-white/90 hover:bg-white text-sky-800 shadow-lg touch-manipulation"
+                className="rounded-lg h-8 w-8 sm:h-10 sm:w-10 pointer-events-auto border border-white/60 bg-white/70 hover:bg-white/90 text-sky-800 shadow-md touch-manipulation"
                 aria-label={muted ? 'Unmute' : 'Mute'}
               >
-                {muted ? <VolumeX className="h-4 w-4 sm:h-5 sm:w-5" /> : <Volume2 className="h-4 w-4 sm:h-5 sm:w-5" />}
+                {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
               </Button>
               <Button
                 type="button"
                 size="icon"
                 onClick={toggleFullscreen}
-                className="rounded-lg sm:rounded-2xl h-9 w-9 sm:h-12 sm:w-12 pointer-events-auto border-2 border-white/80 bg-white/90 hover:bg-white text-sky-800 shadow-lg touch-manipulation"
+                className="rounded-lg h-8 w-8 sm:h-10 sm:w-10 pointer-events-auto border border-white/60 bg-white/70 hover:bg-white/90 text-sky-800 shadow-md touch-manipulation"
                 aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
               >
-                {isFullscreen ? <Minimize className="h-4 w-4 sm:h-5 sm:w-5" /> : <Maximize className="h-4 w-4 sm:h-5 sm:w-5" />}
+                {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
               </Button>
             </div>
           </div>
@@ -441,9 +441,9 @@ export default function GameContainer() {
             <Button 
               size="icon" 
               onClick={pauseGame} 
-              className="rounded-xl sm:rounded-2xl h-12 w-12 sm:h-16 sm:w-16 shadow-2xl pointer-events-auto border-4 border-white bg-primary hover:bg-primary/90 text-white transform hover:scale-105 active:scale-90 transition-all touch-manipulation mb-2 mr-2"
+              className="rounded-xl h-10 w-10 sm:h-14 sm:w-14 shadow-xl pointer-events-auto border-2 border-white/80 bg-primary/90 hover:bg-primary text-white transform hover:scale-105 active:scale-90 transition-all touch-manipulation mb-2 mr-2"
             >
-              <Pause className="h-6 w-6 sm:h-8 sm:w-8 fill-white" />
+              <Pause className="h-5 w-5 sm:h-7 sm:w-7 fill-white" />
             </Button>
           )}
         </div>
