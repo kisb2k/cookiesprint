@@ -230,7 +230,16 @@ export default function GameContainer() {
       {gameState === 'start' && (
         <div className={`absolute inset-0 flex items-center justify-center z-10 bg-sky-900/40 backdrop-blur-xl transition-opacity duration-300 p-4 ${modalClosing ? 'animate-modal-out' : 'animate-in fade-in duration-300'}`}>
           <Card className={`w-full max-w-[28rem] border-white border-4 shadow-2xl rounded-2xl sm:rounded-[3rem] overflow-hidden transition-all duration-300 ${modalClosing ? 'animate-modal-zoom-out' : 'animate-in zoom-in-95'}`}>
-            <div className="bg-primary/5 p-8 text-center flex flex-col items-center gap-6">
+            <div className="bg-primary/5 p-8 text-center flex flex-col items-center gap-6 relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleFullscreen}
+                className="absolute top-4 right-4 rounded-full h-10 w-10 text-primary hover:bg-primary/10"
+                aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+              >
+                {isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
+              </Button>
               <div className="bg-primary p-6 rounded-[2rem] shadow-xl shadow-primary/20">
                 <BridgeIcon className="h-16 w-16 text-white" />
               </div>
@@ -250,9 +259,15 @@ export default function GameContainer() {
                   <p className="text-xs sm:text-sm font-medium">{isTouch ? 'Swipe left / right' : 'Left / Right'}</p>
                 </div>
               </div>
-              <Button size="lg" onClick={startGame} className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-8 sm:py-10 text-2xl sm:text-3xl rounded-2xl sm:rounded-[2rem] shadow-2xl transform active:scale-95 transition-all min-h-[48px] touch-manipulation">
-                <Play className="mr-3 h-10 w-10 fill-white" /> START RUN
-              </Button>
+              <div className="flex flex-col gap-3">
+                <Button size="lg" onClick={startGame} className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-8 sm:py-10 text-2xl sm:text-3xl rounded-2xl sm:rounded-[2rem] shadow-2xl transform active:scale-95 transition-all min-h-[48px] touch-manipulation">
+                  <Play className="mr-3 h-10 w-10 fill-white" /> START RUN
+                </Button>
+                <Button variant="outline" size="lg" onClick={toggleFullscreen} className="w-full border-primary text-primary hover:bg-primary/5 font-bold rounded-xl sm:rounded-2xl py-6 min-h-[48px] touch-manipulation sm:hidden">
+                  {isFullscreen ? <Minimize className="mr-2 h-5 w-5" /> : <Maximize className="mr-2 h-5 w-5" />}
+                  {isFullscreen ? 'EXIT FULLSCREEN' : 'FULLSCREEN MODE'}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
