@@ -3,6 +3,17 @@
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import * as Phaser from 'phaser';
+
+function useIsTouch() {
+  const [isTouch, setIsTouch] = useState(false);
+  useEffect(() => {
+    setIsTouch(
+      typeof window !== 'undefined' &&
+        ('ontouchstart' in window || navigator.maxTouchPoints > 0)
+    );
+  }, []);
+  return isTouch;
+}
 import { BootScene } from './BootScene';
 import { SweetSprintScene } from './SweetSprintScene';
 import { Button } from '@/components/ui/button';
@@ -39,6 +50,7 @@ export default function GameContainer() {
   const [hudPulse, setHudPulse] = useState(false);
   const [cookiePop, setCookiePop] = useState<number | null>(null);
   const phaserGame = useRef<Phaser.Game | null>(null);
+  const isTouch = useIsTouch();
 
   useEffect(() => {
     setMutedState(loadMutePreference());
@@ -56,6 +68,10 @@ export default function GameContainer() {
       parent: gameRef.current!,
       width: 800,
       height: 600,
+      scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+      },
       physics: {
         default: 'arcade',
         arcade: {
@@ -176,16 +192,17 @@ export default function GameContainer() {
   };
 
   return (
-    <div className="relative w-full h-screen flex flex-col items-center justify-center bg-sky-50 overflow-hidden p-4">
+    <div className="relative w-full min-h-dvh flex flex-col items-center justify-center bg-sky-50 overflow-hidden p-2 sm:p-4 safe-area-inset">
       <div 
         ref={gameRef} 
         tabIndex={0}
-        className={`w-full max-w-[800px] aspect-[4/3] shadow-2xl rounded-[2rem] overflow-hidden bg-white border-8 border-white transition-all ${gameState !== 'playing' ? 'blur-md scale-[0.98]' : 'scale-100'}`}
+        className={`w-full max-w-[800px] aspect-[4/3] max-h-[calc(100dvh-2rem)] shadow-2xl rounded-xl sm:rounded-[2rem] overflow-hidden bg-white border-4 sm:border-8 border-white transition-all touch-none ${gameState !== 'playing' ? 'blur-md scale-[0.98]' : 'scale-100'}`}
+        style={{ touchAction: 'none' }}
       />
 
       {gameState === 'start' && (
-        <div className={`absolute inset-0 flex items-center justify-center z-10 bg-sky-900/40 backdrop-blur-xl transition-opacity duration-300 ${modalClosing ? 'animate-modal-out' : 'animate-in fade-in duration-300'}`}>
-          <Card className={`w-[28rem] border-white border-4 shadow-2xl rounded-[3rem] overflow-hidden transition-all duration-300 ${modalClosing ? 'animate-modal-zoom-out' : 'animate-in zoom-in-95'}`}>
+        <div className={`absolute inset-0 flex items-center justify-center z-10 bg-sky-900/40 backdrop-blur-xl transition-opacity duration-300 p-4 ${modalClosing ? 'animate-modal-out' : 'animate-in fade-in duration-300'}`}>
+          <Card className={`w-full max-w-[28rem] border-white border-4 shadow-2xl rounded-2xl sm:rounded-[3rem] overflow-hidden transition-all duration-300 ${modalClosing ? 'animate-modal-zoom-out' : 'animate-in zoom-in-95'}`}>
             <div className="bg-primary/5 p-8 text-center flex flex-col items-center gap-6">
               <div className="bg-primary p-6 rounded-[2rem] shadow-xl shadow-primary/20">
                 <BridgeIcon className="h-16 w-16 text-white" />
@@ -195,18 +212,18 @@ export default function GameContainer() {
                 <p className="text-muted-foreground font-medium">A Bridge Run Adventure</p>
               </div>
             </div>
-            <CardContent className="flex flex-col gap-8 text-center p-10 bg-white">
-              <div className="grid grid-cols-2 gap-4 text-left">
-                <div className="bg-sky-50 p-4 rounded-2xl border border-sky-100">
-                  <p className="text-xs font-bold text-sky-600 uppercase mb-1">Switch Level</p>
-                  <p className="text-sm font-medium">Arrow Up / Down</p>
+            <CardContent className="flex flex-col gap-6 sm:gap-8 text-center p-6 sm:p-10 bg-white">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 text-left">
+                <div className="bg-sky-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-sky-100">
+                  <p className="text-xs font-bold text-sky-600 uppercase mb-1">Switch lane / Jump</p>
+                  <p className="text-xs sm:text-sm font-medium">{isTouch ? 'Swipe up / down' : 'Arrow Up / Down'}</p>
                 </div>
-                <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100">
+                <div className="bg-orange-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-orange-100">
                   <p className="text-xs font-bold text-orange-600 uppercase mb-1">Slide</p>
-                  <p className="text-sm font-medium">Left / Right</p>
+                  <p className="text-xs sm:text-sm font-medium">{isTouch ? 'Swipe left / right' : 'Left / Right'}</p>
                 </div>
               </div>
-              <Button size="lg" onClick={startGame} className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-10 text-3xl rounded-[2rem] shadow-2xl transform active:scale-95 transition-all">
+              <Button size="lg" onClick={startGame} className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-8 sm:py-10 text-2xl sm:text-3xl rounded-2xl sm:rounded-[2rem] shadow-2xl transform active:scale-95 transition-all min-h-[48px] touch-manipulation">
                 <Play className="mr-3 h-10 w-10 fill-white" /> START RUN
               </Button>
             </CardContent>
@@ -215,19 +232,19 @@ export default function GameContainer() {
       )}
 
       {gameState === 'paused' && (
-        <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/40 backdrop-blur-md">
-          <Card className="w-80 border-white border-4 shadow-2xl animate-in zoom-in-95 rounded-[2.5rem]">
+        <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/40 backdrop-blur-md p-4">
+          <Card className="w-full max-w-[20rem] border-white border-4 shadow-2xl animate-in zoom-in-95 rounded-2xl sm:rounded-[2.5rem]">
             <CardHeader className="text-center">
-              <CardTitle className="text-3xl font-headline text-primary">Paused</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl font-headline text-primary">Paused</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-3 pb-8 px-8">
-              <Button size="lg" onClick={resumeGame} className="w-full bg-primary hover:bg-primary/90 text-white font-bold rounded-2xl py-6">
-                <Play className="mr-2 h-6 w-6 fill-white" /> RESUME
+            <CardContent className="flex flex-col gap-3 pb-6 sm:pb-8 px-6 sm:px-8">
+              <Button size="lg" onClick={resumeGame} className="w-full bg-primary hover:bg-primary/90 text-white font-bold rounded-xl sm:rounded-2xl py-5 sm:py-6 min-h-[48px] touch-manipulation">
+                <Play className="mr-2 h-5 w-5 sm:h-6 sm:w-6 fill-white" /> RESUME
               </Button>
-              <Button size="lg" variant="outline" onClick={restartGame} className="w-full border-primary text-primary hover:bg-primary/5 font-bold rounded-2xl py-6">
-                <RotateCcw className="mr-2 h-6 w-6" /> RESTART
+              <Button size="lg" variant="outline" onClick={restartGame} className="w-full border-primary text-primary hover:bg-primary/5 font-bold rounded-xl sm:rounded-2xl py-5 sm:py-6 min-h-[48px] touch-manipulation">
+                <RotateCcw className="mr-2 h-5 w-5 sm:h-6 sm:w-6" /> RESTART
               </Button>
-              <Button size="lg" variant="ghost" onClick={goHome} className="w-full text-muted-foreground rounded-2xl">
+              <Button size="lg" variant="ghost" onClick={goHome} className="w-full text-muted-foreground rounded-xl sm:rounded-2xl py-5 min-h-[48px] touch-manipulation">
                 <Home className="mr-2 h-5 w-5" /> MAIN MENU
               </Button>
             </CardContent>
@@ -236,30 +253,30 @@ export default function GameContainer() {
       )}
 
       {gameState === 'gameover' && (
-        <div className="absolute inset-0 flex items-center justify-center z-10 bg-sky-950/60 backdrop-blur-xl">
-          <Card className="w-[30rem] border-secondary border-4 shadow-2xl animate-in zoom-in-95 rounded-[3rem]">
-            <CardHeader className="text-center pt-10">
-              <CardTitle className="text-5xl font-headline text-secondary mb-2">Game Over!</CardTitle>
-              <p className="text-muted-foreground font-medium">You almost reached the city skyline!</p>
+        <div className="absolute inset-0 flex items-center justify-center z-10 bg-sky-950/60 backdrop-blur-xl p-4">
+          <Card className="w-full max-w-[30rem] border-secondary border-4 shadow-2xl animate-in zoom-in-95 rounded-2xl sm:rounded-[3rem]">
+            <CardHeader className="text-center pt-6 sm:pt-10">
+              <CardTitle className="text-4xl sm:text-5xl font-headline text-secondary mb-2">Game Over!</CardTitle>
+              <p className="text-muted-foreground font-medium text-sm sm:text-base">You almost reached the city skyline!</p>
             </CardHeader>
-            <CardContent className="flex flex-col gap-8 text-center p-10">
-              <div className="grid grid-cols-2 gap-6">
-                <div className="bg-sky-50/50 p-6 rounded-3xl border-2 border-sky-100">
+            <CardContent className="flex flex-col gap-6 sm:gap-8 text-center p-6 sm:p-10">
+              <div className="grid grid-cols-2 gap-4 sm:gap-6">
+                <div className="bg-sky-50/50 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border-2 border-sky-100">
                   <p className="text-[10px] uppercase font-bold text-sky-500 tracking-widest mb-1">Distance</p>
-                  <p className="text-4xl font-headline text-sky-900">{score}m</p>
+                  <p className="text-3xl sm:text-4xl font-headline text-sky-900">{score}m</p>
                 </div>
-                <div className="bg-orange-50/50 p-6 rounded-3xl border-2 border-orange-100">
+                <div className="bg-orange-50/50 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border-2 border-orange-100">
                   <p className="text-[10px] uppercase font-bold text-orange-500 tracking-widest mb-1">Cookies</p>
-                  <p className="text-4xl font-headline text-orange-600 flex items-center justify-center">
-                    <Cookie className="mr-2 h-8 w-8 fill-orange-500 text-orange-600" /> {cookies}
+                  <p className="text-3xl sm:text-4xl font-headline text-orange-600 flex items-center justify-center">
+                    <Cookie className="mr-2 h-6 w-6 sm:h-8 sm:w-8 fill-orange-500 text-orange-600" /> {cookies}
                   </p>
                 </div>
               </div>
-              <div className="flex flex-col gap-4">
-                <Button size="lg" onClick={restartGame} className="w-full bg-secondary hover:bg-secondary/90 text-white font-bold py-10 text-2xl rounded-[2rem] shadow-xl transform active:scale-95 transition-all">
-                  <RotateCcw className="mr-3 h-8 w-8" /> TRY AGAIN
+              <div className="flex flex-col gap-3 sm:gap-4">
+                <Button size="lg" onClick={restartGame} className="w-full bg-secondary hover:bg-secondary/90 text-white font-bold py-8 sm:py-10 text-xl sm:text-2xl rounded-2xl shadow-xl transform active:scale-95 transition-all min-h-[48px] touch-manipulation">
+                  <RotateCcw className="mr-3 h-6 w-6 sm:h-8 sm:w-8" /> TRY AGAIN
                 </Button>
-                <Button variant="ghost" onClick={goHome} className="w-full text-muted-foreground hover:bg-secondary/5 rounded-2xl">
+                <Button variant="ghost" onClick={goHome} className="w-full text-muted-foreground hover:bg-secondary/5 rounded-2xl min-h-[48px] touch-manipulation">
                   <Home className="mr-2 h-5 w-5" /> MAIN MENU
                 </Button>
               </div>
@@ -275,29 +292,29 @@ export default function GameContainer() {
         </div>
       )}
 
-      {/* Modern HUD */}
-      <div className="absolute top-10 left-0 right-0 flex justify-between px-16 z-0 pointer-events-none">
-        <div className="flex gap-4">
-          <div className={`bg-white/90 backdrop-blur-xl px-8 py-3 rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center transition-transform duration-200 ${hudPulse ? 'animate-hud-pulse' : ''}`}>
-            <span className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-0.5">Metres</span>
-            <span className="text-3xl font-headline text-sky-900 tabular-nums">{score}</span>
+      {/* Modern HUD - touch-friendly min tap targets (44px) */}
+      <div className="absolute top-4 sm:top-10 left-0 right-0 flex justify-between px-4 sm:px-16 z-0 pointer-events-none">
+        <div className="flex gap-2 sm:gap-4">
+          <div className={`bg-white/90 backdrop-blur-xl px-4 sm:px-8 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center min-w-[60px] sm:min-w-0 transition-transform duration-200 ${hudPulse ? 'animate-hud-pulse' : ''}`}>
+            <span className="text-[9px] sm:text-[10px] font-black text-sky-400 uppercase tracking-widest mb-0.5">Metres</span>
+            <span className="text-xl sm:text-3xl font-headline text-sky-900 tabular-nums">{score}</span>
           </div>
-          <div className={`bg-white/90 backdrop-blur-xl px-8 py-3 rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center transition-transform duration-200 ${hudPulse ? 'animate-hud-pulse' : ''}`}>
-            <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-0.5">Cookies</span>
-            <span className="text-3xl font-headline text-orange-600 tabular-nums flex items-center">
-              <Cookie className="mr-2 h-6 w-6 fill-orange-500 text-orange-600" /> {cookies}
+          <div className={`bg-white/90 backdrop-blur-xl px-4 sm:px-8 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center min-w-[60px] sm:min-w-0 transition-transform duration-200 ${hudPulse ? 'animate-hud-pulse' : ''}`}>
+            <span className="text-[9px] sm:text-[10px] font-black text-orange-400 uppercase tracking-widest mb-0.5">Cookies</span>
+            <span className="text-xl sm:text-3xl font-headline text-orange-600 tabular-nums flex items-center">
+              <Cookie className="mr-1 sm:mr-2 h-4 w-4 sm:h-6 sm:w-6 fill-orange-500 text-orange-600" /> {cookies}
             </span>
           </div>
         </div>
 
-        <div className="flex gap-4 items-center">
-          <div className="bg-white/90 backdrop-blur-xl px-8 py-3 rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center">
-            <span className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1.5">Health</span>
-            <div className="flex gap-2">
+        <div className="flex gap-2 sm:gap-4 items-center">
+          <div className="bg-white/90 backdrop-blur-xl px-4 sm:px-8 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center">
+            <span className="text-[9px] sm:text-[10px] font-black text-red-400 uppercase tracking-widest mb-1 sm:mb-1.5">Health</span>
+            <div className="flex gap-1 sm:gap-2">
               {[...Array(2)].map((_, i) => (
                 <Heart 
                   key={i} 
-                  className={`h-6 w-6 transition-all duration-300 ${i < lives ? 'fill-red-500 text-red-500 scale-100' : 'text-slate-200 scale-75'}`} 
+                  className={`h-5 w-5 sm:h-6 sm:w-6 transition-all duration-300 ${i < lives ? 'fill-red-500 text-red-500 scale-100' : 'text-slate-200 scale-75'}`} 
                 />
               ))}
             </div>
@@ -307,7 +324,7 @@ export default function GameContainer() {
             type="button"
             size="icon"
             onClick={toggleMute}
-            className="rounded-2xl h-12 w-12 pointer-events-auto border-2 border-white/80 bg-white/90 hover:bg-white text-sky-800 shadow-lg"
+            className="rounded-xl sm:rounded-2xl h-11 w-11 sm:h-12 sm:w-12 min-h-[44px] min-w-[44px] pointer-events-auto border-2 border-white/80 bg-white/90 hover:bg-white text-sky-800 shadow-lg touch-manipulation"
             aria-label={muted ? 'Unmute' : 'Mute'}
           >
             {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
@@ -317,9 +334,9 @@ export default function GameContainer() {
             <Button 
               size="icon" 
               onClick={pauseGame} 
-              className="rounded-2xl h-16 w-16 shadow-2xl pointer-events-auto border-4 border-white bg-primary hover:bg-primary/90 text-white transform hover:scale-105 active:scale-90 transition-all"
+              className="rounded-xl sm:rounded-2xl h-14 w-14 sm:h-16 sm:w-16 min-h-[48px] min-w-[48px] shadow-2xl pointer-events-auto border-4 border-white bg-primary hover:bg-primary/90 text-white transform hover:scale-105 active:scale-90 transition-all touch-manipulation"
             >
-              <Pause className="h-8 w-8 fill-white" />
+              <Pause className="h-7 w-7 sm:h-8 sm:w-8 fill-white" />
             </Button>
           )}
         </div>

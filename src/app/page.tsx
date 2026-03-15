@@ -18,14 +18,14 @@ const GameContainer = dynamic(
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-[#F8F1EF] relative overflow-hidden flex items-center justify-center">
+    <main className="min-h-dvh bg-[#F8F1EF] relative overflow-hidden flex items-center justify-center">
       {/* Decorative background elements */}
       <div className="absolute -top-24 -left-24 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
       <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-accent/10 rounded-full blur-3xl" />
       
       <GameContainer />
       
-      <footer className="absolute bottom-4 text-xs text-muted-foreground font-body">
+      <footer className="absolute bottom-4 left-4 right-4 text-center text-xs text-muted-foreground font-body pb-[env(safe-area-inset-bottom, 0)]">
         SweetSprint &copy; 2024 • A Delicious Running Adventure
       </footer>
     </main>

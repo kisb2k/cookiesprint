@@ -30,7 +30,9 @@ export class SweetSprintScene extends Phaser.Scene {
   private lanePressureCooldownMs: number = 0;
   
   private lastSpawnDistance: number = 0;
-  private spawnInterval: number = 250; 
+  private spawnInterval: number = 250;
+  /** Last score at which we applied a speed boost (every 1000m). */
+  private lastSpeedBoostAt: number = 0; 
 
   private lives: number = 2;
   private isInvulnerable: boolean = false;
@@ -44,7 +46,10 @@ export class SweetSprintScene extends Phaser.Scene {
 
   private parallaxFar!: Phaser.GameObjects.TileSprite;
   private parallaxMid!: Phaser.GameObjects.TileSprite;
+  private parallaxNear!: Phaser.GameObjects.TileSprite;
   private cookieCollectEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
+  /** Player sprite height from origin (feet) to center; used for bridge/feet alignment. */
+  private readonly playerVisualHeight = 50;
   private shakeAmount: number = 0;
   private shakeOrigin: { x: number; y: number } = { x: 0, y: 0 };
 
@@ -52,6 +57,9 @@ export class SweetSprintScene extends Phaser.Scene {
   private downKey!: Phaser.Input.Keyboard.Key;
   private leftKey!: Phaser.Input.Keyboard.Key;
   private rightKey!: Phaser.Input.Keyboard.Key;
+  private pointerDownX: number = 0;
+  private pointerDownY: number = 0;
+  private static readonly SWIPE_THRESHOLD = 40;
 
   constructor(
     onGameOver: (score: number, cookies: number) => void,
@@ -82,6 +90,7 @@ export class SweetSprintScene extends Phaser.Scene {
     this.laneDwellTimeMs = 0;
     this.lastLaneIndex = this.currentLane;
     this.lanePressureCooldownMs = 0;
+    this.lastSpeedBoostAt = 0;
   }
 
   create() {
@@ -99,9 +108,14 @@ export class SweetSprintScene extends Phaser.Scene {
       this.parallaxFar.setOrigin(0.5, 0);
     }
     if (this.textures.exists('parallax_mid')) {
-      this.parallaxMid = this.add.tileSprite(width / 2, 180, width, 200, 'parallax_mid');
+      this.parallaxMid = this.add.tileSprite(width / 2, 180, width, 220, 'parallax_mid');
       this.parallaxMid.setDepth(3);
       this.parallaxMid.setOrigin(0.5, 0);
+    }
+    if (this.textures.exists('parallax_near')) {
+      this.parallaxNear = this.add.tileSprite(width / 2, 260, width, 220, 'parallax_near');
+      this.parallaxNear.setDepth(4);
+      this.parallaxNear.setOrigin(0.5, 0);
     }
 
     this.createDistantBridge();
@@ -117,7 +131,7 @@ export class SweetSprintScene extends Phaser.Scene {
     this.laneYPositions.forEach((laneY, index) => {
       const scale = this.laneScales[index];
       const deckHeight = Math.round(this.bridgeDeckBaseHeight * scale);
-      const feetY = laneY - 48 * scale;
+      const feetY = laneY - this.playerVisualHeight * scale;
       const tileSprite = this.add.tileSprite(width / 2, feetY, width, deckHeight, `bridge_deck_${index}`);
       tileSprite.setDepth(10 + index * 10);
       tileSprite.setOrigin(0.5, 0);
@@ -149,12 +163,12 @@ export class SweetSprintScene extends Phaser.Scene {
       this.cookieCollectEmitter.stop();
     }
 
-    // Player run animation (from BootScene texture)
+    // Player run animation (from BootScene texture; 6 frames for smoother motion)
     if (this.textures.exists('player_run')) {
       this.anims.create({
         key: 'run',
-        frames: this.anims.generateFrameNumbers('player_run', { start: 0, end: 3 }),
-        frameRate: 12,
+        frames: this.anims.generateFrameNumbers('player_run', { start: 0, end: 5 }),
+        frameRate: 14,
         repeat: -1
       });
     }
@@ -228,13 +242,19 @@ export class SweetSprintScene extends Phaser.Scene {
 
   private createCloud(x: number, y: number) {
     const container = this.add.container(x, y);
-    const g = this.add.graphics();
-    g.fillStyle(0xffffff, 0.9);
-    g.fillCircle(0, 0, 25);
-    g.fillCircle(20, -10, 20);
-    g.fillCircle(20, 10, 20);
-    g.fillCircle(40, 0, 25);
-    container.add(g);
+    if (this.textures.exists('cloud')) {
+      const cloud = this.add.sprite(0, 0, 'cloud');
+      cloud.setOrigin(0.5, 0.5);
+      container.add(cloud);
+    } else {
+      const g = this.add.graphics();
+      g.fillStyle(0xffffff, 0.9);
+      g.fillCircle(0, 0, 25);
+      g.fillCircle(20, -10, 20);
+      g.fillCircle(20, 10, 20);
+      g.fillCircle(40, 0, 25);
+      container.add(g);
+    }
     container.setData('speed', Phaser.Math.Between(2, 6) * 0.05);
     container.setDepth(2);
     this.clouds.add(container);
@@ -245,11 +265,10 @@ export class SweetSprintScene extends Phaser.Scene {
     this.player.setDepth(15 + this.currentLane * 10);
 
     if (this.textures.exists('shadow') && this.textures.exists('player_run')) {
-      // Sprite-based player with shadow
-      const shadow = this.add.sprite(0, 28, 'shadow');
+      const shadow = this.add.sprite(0, 30, 'shadow');
       shadow.setOrigin(0.5, 0.5);
       this.player.add(shadow);
-      const runner = this.add.sprite(0, -48, 'player_run', 0);
+      const runner = this.add.sprite(0, -this.playerVisualHeight, 'player_run', 0);
       runner.setOrigin(0.5, 1);
       if (this.anims.exists('run')) runner.play('run');
       this.player.add(runner);
@@ -281,22 +300,47 @@ export class SweetSprintScene extends Phaser.Scene {
   }
 
   private setupInputs() {
+    this.setupKeyboardInput();
+    this.setupTouchInput();
+  }
+
+  private setupKeyboardInput() {
     if (!this.input.keyboard) return;
     this.upKey = this.input.keyboard.addKey('UP');
     this.downKey = this.input.keyboard.addKey('DOWN');
     this.leftKey = this.input.keyboard.addKey('LEFT');
     this.rightKey = this.input.keyboard.addKey('RIGHT');
-
     this.upKey.on('down', () => {
-      if (this.currentLane === 0) {
-        this.jump();
-      } else {
-        this.moveLane(-1);
-      }
+      if (this.currentLane === 0) this.jump();
+      else this.moveLane(-1);
     });
     this.downKey.on('down', () => this.moveLane(1));
     this.leftKey.on('down', () => this.slide());
     this.rightKey.on('down', () => this.slide());
+  }
+
+  private setupTouchInput() {
+    this.input.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
+      this.pointerDownX = ptr.x;
+      this.pointerDownY = ptr.y;
+    });
+    this.input.on('pointerup', (ptr: Phaser.Input.Pointer) => {
+      const dx = ptr.x - this.pointerDownX;
+      const dy = ptr.y - this.pointerDownY;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+      if (absDx < SweetSprintScene.SWIPE_THRESHOLD && absDy < SweetSprintScene.SWIPE_THRESHOLD) return;
+      if (absDx > absDy) {
+        if (absDx >= SweetSprintScene.SWIPE_THRESHOLD) this.slide();
+      } else {
+        if (absDy >= SweetSprintScene.SWIPE_THRESHOLD) {
+          if (dy < 0) {
+            if (this.currentLane === 0) this.jump();
+            else this.moveLane(-1);
+          } else this.moveLane(1);
+        }
+      }
+    });
   }
 
   update(time: number, delta: number) {
@@ -330,6 +374,9 @@ export class SweetSprintScene extends Phaser.Scene {
     if (this.parallaxMid) {
       this.parallaxMid.tilePositionX += this.baseSpeed * 0.04 * delta * 0.05;
     }
+    if (this.parallaxNear) {
+      this.parallaxNear.tilePositionX += this.baseSpeed * 0.07 * delta * 0.05;
+    }
 
     // Distant background movement
     this.distantBridge.tilePositionX += this.baseSpeed * 0.1 * delta * 0.05;
@@ -351,9 +398,11 @@ export class SweetSprintScene extends Phaser.Scene {
       this.onUpdateScore(this.score);
     }
 
-    // Speed increases slowly over time
-    if (this.score > 0 && this.score % 500 === 0) {
-      this.baseSpeed += 0.01;
+    // Every 1000m: increase overall game speed a little
+    const speedMilestone = Math.floor(this.score / 1000) * 1000;
+    if (speedMilestone >= 1000 && speedMilestone > this.lastSpeedBoostAt) {
+      this.baseSpeed += 0.2;
+      this.lastSpeedBoostAt = speedMilestone;
     }
 
     // Move obstacles and cookies matching their lane speed
@@ -383,8 +432,9 @@ export class SweetSprintScene extends Phaser.Scene {
     if (activeObstacles === 0 || (this.distance - this.lastSpawnDistance > this.spawnInterval)) {
       this.spawnObstacleSet();
       this.lastSpawnDistance = this.distance;
-      // Adjust spawn interval based on speed/distance
-      this.spawnInterval = Math.max(120, 280 - (this.distance / 150));
+      // Spawn interval: base minus distance, and every 500m reduce further (higher frequency)
+      const per500mReduction = Math.floor(this.score / 500) * 12;
+      this.spawnInterval = Math.max(80, 280 - (this.distance / 120) - per500mReduction);
     }
   }
 
@@ -413,8 +463,8 @@ export class SweetSprintScene extends Phaser.Scene {
     
     this.tweens.add({
       targets: this.player,
-      y: this.player.y - 120,
-      duration: 400,
+      y: this.player.y - 110,
+      duration: 380,
       ease: 'Cubic.out',
       yoyo: true,
       onComplete: () => {
@@ -431,8 +481,8 @@ export class SweetSprintScene extends Phaser.Scene {
     this.tweens.add({
       targets: this.player,
       scaleY: this.laneScales[this.currentLane] * 0.4,
-      y: this.player.y + 25,
-      duration: 450,
+      y: this.player.y + 22,
+      duration: 400,
       yoyo: true,
       ease: 'Cubic.out',
       onComplete: () => {
@@ -492,7 +542,8 @@ export class SweetSprintScene extends Phaser.Scene {
   }
 
   private spawnObstacleSet() {
-    const obstacleCount = Math.min(3, 1 + Math.floor(this.distance / 1200));
+    // Every 500m: allow one more obstacle per set (up to 4) for higher frequency
+    const obstacleCount = Math.min(4, 1 + Math.floor(this.score / 500));
     const usedLanes = new Set<number>();
 
     for (let i = 0; i < obstacleCount; i++) {
@@ -508,62 +559,74 @@ export class SweetSprintScene extends Phaser.Scene {
     const cookieCount = Phaser.Math.Between(1, 2);
     for (let j = 0; j < cookieCount; j++) {
       let cookieLane = Phaser.Math.Between(0, 2);
-      const cookieSurfaceY = this.laneYPositions[cookieLane] - 48 * this.laneScales[cookieLane];
+      const cookieSurfaceY = this.laneYPositions[cookieLane] - this.playerVisualHeight * this.laneScales[cookieLane];
       this.createCookie(900 + Phaser.Math.Between(100, 600), cookieSurfaceY - 8, cookieLane);
     }
   }
 
   private createObstacle(laneIdx: number, type: string, x: number) {
-    const surfaceY = this.laneYPositions[laneIdx] - 48 * this.laneScales[laneIdx];
+    const surfaceY = this.laneYPositions[laneIdx] - this.playerVisualHeight * this.laneScales[laneIdx];
     const spawnY = surfaceY + 22;
     const container = this.add.container(x, spawnY);
-    // Shadow under obstacle
     if (this.textures.exists('shadow')) {
-      const shadow = this.add.sprite(0, 25, 'shadow');
+      const shadow = this.add.sprite(0, 28, 'shadow');
       shadow.setOrigin(0.5, 0.5);
       shadow.setScale(1.2);
       container.add(shadow);
     }
-    const g = this.add.graphics();
-    
-    if (type === 'vehicle') {
-      g.fillStyle(0x334155, 1);
-      g.fillRoundedRect(-50, -40, 100, 50, 8);
-      g.fillStyle(0x475569, 1);
-      g.fillRoundedRect(-50, -35, 100, 20, 2);
-      g.fillStyle(0x000000, 1);
-      g.fillCircle(-30, 10, 12);
-      g.fillCircle(30, 10, 12);
-    } else if (type === 'pet') {
-      g.fillStyle(0x92400e, 1);
-      g.fillEllipse(0, -10, 24, 16);
-      g.fillCircle(12, -20, 10);
-      g.fillStyle(0x000000, 1);
-      g.fillCircle(14, -22, 2);
-    } else if (type === 'waterPuddle') {
-      g.fillStyle(0x38bdf8, 0.5);
-      g.fillEllipse(0, 5, 60, 18);
-      g.lineStyle(2, 0xffffff, 0.3);
-      g.strokeEllipse(0, 5, 60, 18);
+    const texKey = `obstacle_${type}`;
+    if (this.textures.exists(texKey)) {
+      const sprite = this.add.sprite(0, 0, texKey);
+      sprite.setOrigin(0.5, 1);
+      container.add(sprite);
     } else {
-      // Person
-      g.fillStyle(0x1e293b, 1);
-      g.fillRect(-12, -60, 24, 45);
-      g.fillStyle(0xffdbac, 1);
-      g.fillCircle(0, -70, 12);
+      const g = this.add.graphics();
+      if (type === 'vehicle') {
+        g.fillStyle(0x334155, 1);
+        g.fillRoundedRect(-50, -40, 100, 50, 8);
+        g.fillStyle(0x475569, 1);
+        g.fillRoundedRect(-50, -35, 100, 20, 2);
+        g.fillStyle(0x000000, 1);
+        g.fillCircle(-30, 10, 12);
+        g.fillCircle(30, 10, 12);
+      } else if (type === 'pet') {
+        g.fillStyle(0x92400e, 1);
+        g.fillEllipse(0, -10, 24, 16);
+        g.fillCircle(12, -20, 10);
+        g.fillStyle(0x000000, 1);
+        g.fillCircle(14, -22, 2);
+      } else if (type === 'waterPuddle') {
+        g.fillStyle(0x38bdf8, 0.5);
+        g.fillEllipse(0, 5, 60, 18);
+        g.lineStyle(2, 0xffffff, 0.3);
+        g.strokeEllipse(0, 5, 60, 18);
+      } else {
+        g.fillStyle(0x1e293b, 1);
+        g.fillRect(-12, -60, 24, 45);
+        g.fillStyle(0xffdbac, 1);
+        g.fillCircle(0, -70, 12);
+      }
+      container.add(g);
     }
-    
-    container.add(g);
     container.setData('lane', laneIdx);
     container.setData('type', type);
     container.setDepth(14 + laneIdx * 10);
     container.setScale(this.laneScales[laneIdx]);
-    
     this.physics.add.existing(container);
     this.obstacles.add(container);
     const body = container.body as Phaser.Physics.Arcade.Body;
     body.setSize(70, 70);
     body.setOffset(-35, -70);
+    if (this.textures.exists(texKey)) {
+      this.tweens.add({
+        targets: container,
+        y: spawnY - 4,
+        duration: 800 + laneIdx * 100,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
   }
 
   private createCookie(x: number, y: number, lane: number) {
