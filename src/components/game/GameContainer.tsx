@@ -15,11 +15,16 @@ function useIsTouch() {
   }, []);
   return isTouch;
 }
+
 import { BootScene } from './BootScene';
 import { SweetSprintScene } from './SweetSprintScene';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Cookie, Play, RotateCcw, Heart, Pause, Home, Volume2, VolumeX, Maximize, Minimize } from 'lucide-react';
+import { 
+  Cookie, Play, RotateCcw, Heart, Pause, Home, 
+  Volume2, VolumeX, Maximize, Minimize, 
+  Keyboard, Smartphone, MousePointer2, MoveHorizontal
+} from 'lucide-react';
 import { playSound, setMuted, loadMutePreference, type SoundEvent } from '@/lib/gameSound';
 
 const BridgeIcon = ({ className }: { className?: string }) => (
@@ -111,14 +116,12 @@ export default function GameContainer() {
     };
   }, []);
 
-  // HUD pulse when score or cookies change
   useEffect(() => {
     setHudPulse(true);
     const t = setTimeout(() => setHudPulse(false), 400);
     return () => clearTimeout(t);
   }, [score, cookies]);
 
-  // Cookie +1 pop when cookies increase
   const prevCookies = useRef(0);
   useEffect(() => {
     if (cookies > prevCookies.current && gameState === 'playing') {
@@ -245,18 +248,35 @@ export default function GameContainer() {
               </div>
               <div>
                 <CardTitle className="text-5xl font-headline text-primary mb-2">SweetSprint</CardTitle>
-                <p className="text-muted-foreground font-medium">A Bridge Run Adventure</p>
+                <div className="flex items-center justify-center gap-2 text-muted-foreground font-medium">
+                  {isTouch ? <Smartphone className="h-4 w-4" /> : <Keyboard className="h-4 w-4" />}
+                  <p>{isTouch ? 'Mobile Controls Active' : 'Desktop Controls Active'}</p>
+                </div>
               </div>
             </div>
             <CardContent className="flex flex-col gap-6 sm:gap-8 text-center p-6 sm:p-10 bg-white">
               <div className="grid grid-cols-2 gap-3 sm:gap-4 text-left">
-                <div className="bg-sky-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-sky-100">
-                  <p className="text-xs font-bold text-sky-600 uppercase mb-1">Switch lane / Jump</p>
-                  <p className="text-xs sm:text-sm font-medium">{isTouch ? 'Swipe up / down' : 'Arrow Up / Down'}</p>
+                <div className="bg-sky-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-sky-100 flex flex-col gap-1">
+                  <p className="text-[10px] font-bold text-sky-600 uppercase tracking-wider">Switch / Jump</p>
+                  <div className="flex items-center gap-2">
+                    <div className="bg-sky-200/50 p-1.5 rounded-lg">
+                      {isTouch ? <MoveHorizontal className="h-4 w-4 text-sky-700 rotate-90" /> : <Keyboard className="h-4 w-4 text-sky-700" />}
+                    </div>
+                    <p className="text-xs sm:text-sm font-semibold text-sky-900">
+                      {isTouch ? 'Swipe UP / DOWN' : 'UP / DOWN Arrows'}
+                    </p>
+                  </div>
                 </div>
-                <div className="bg-orange-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-orange-100">
-                  <p className="text-xs font-bold text-orange-600 uppercase mb-1">Slide</p>
-                  <p className="text-xs sm:text-sm font-medium">{isTouch ? 'Swipe left / right' : 'Left / Right'}</p>
+                <div className="bg-orange-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-orange-100 flex flex-col gap-1">
+                  <p className="text-[10px] font-bold text-orange-600 uppercase tracking-wider">Slide / Dodge</p>
+                  <div className="flex items-center gap-2">
+                    <div className="bg-orange-200/50 p-1.5 rounded-lg">
+                      {isTouch ? <Smartphone className="h-4 w-4 text-orange-700" /> : <MousePointer2 className="h-4 w-4 text-orange-700" />}
+                    </div>
+                    <p className="text-xs sm:text-sm font-semibold text-orange-900">
+                      {isTouch ? 'Swipe LEFT / RIGHT' : 'LEFT / RIGHT Arrows'}
+                    </p>
+                  </div>
                 </div>
               </div>
               <div className="flex flex-col gap-3">
@@ -327,14 +347,12 @@ export default function GameContainer() {
         </div>
       )}
 
-      {/* Cookie +1 pop */}
       {cookiePop !== null && (
         <div className="absolute top-32 left-1/2 -translate-x-1/2 z-20 pointer-events-none animate-cookie-pop">
           <span className="text-2xl font-headline text-amber-500 drop-shadow-lg">+{cookiePop}</span>
         </div>
       )}
 
-      {/* Modern HUD - touch-friendly min tap targets (44px) */}
       <div className={`absolute ${isFullscreen ? 'top-2 sm:top-6' : 'top-4 sm:top-10'} left-0 right-0 flex justify-between px-4 sm:px-16 z-0 pointer-events-none`}>
         <div className="flex gap-2 sm:gap-4">
           <div className={`bg-white/90 backdrop-blur-xl px-4 sm:px-8 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center min-w-[60px] sm:min-w-0 transition-transform duration-200 ${hudPulse ? 'animate-hud-pulse' : ''}`}>
