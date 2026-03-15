@@ -11,6 +11,10 @@ export class SweetSprintScene extends Phaser.Scene {
   private readonly bridgeTextureWidth = 200;
   /** Base deck height in texture (scaled per lane). Thinner deck = clearer running surface. */
   private readonly bridgeDeckBaseHeight = 72;
+  /** Scale obstacles relative to lane so they're proportional to bridge and player. */
+  private readonly obstacleScaleMultiplier = 0.78;
+  /** Slight scale for player so they read clearly on the bridge. */
+  private readonly playerScaleMultiplier = 1.05;
   
   private score: number = 0;
   private distance: number = 0;
@@ -193,13 +197,13 @@ export class SweetSprintScene extends Phaser.Scene {
 
   private createDistantBridge() {
     const g = this.make.graphics({ x: 0, y: 0, add: false });
-    g.fillStyle(0x0ea5e9, 0.2);
-    g.fillRect(0, 0, 400, 100);
-    g.lineStyle(2, 0x0ea5e9, 0.3);
-    g.lineBetween(0, 20, 400, 20);
-    for (let i = 0; i < 400; i += 40) {
-      g.lineBetween(i, 20, i + 20, 0);
-      g.lineBetween(i + 20, 0, i + 40, 20);
+    g.fillGradientStyle(0x38bdf8, 0x38bdf8, 0x0ea5e9, 0x0ea5e9, 0.15, 0.15, 0.25, 0.25);
+    g.fillRoundedRect(0, 0, 400, 100, 4);
+    g.lineStyle(1.5, 0x0ea5e9, 0.25);
+    g.lineBetween(0, 22, 400, 22);
+    for (let i = 0; i < 400; i += 50) {
+      g.lineBetween(i, 22, i + 25, 4);
+      g.lineBetween(i + 25, 4, i + 50, 22);
     }
     g.generateTexture('distant_bridge', 400, 100);
     this.distantBridge = this.add.tileSprite(400, 150, 800, 100, 'distant_bridge');
@@ -208,34 +212,34 @@ export class SweetSprintScene extends Phaser.Scene {
   }
 
   private createBridgeTextures() {
-    // dust texture is created in BootScene. Deck texture tiles across full screen width.
+    const bridgePalette = [
+      { deckTop: 0x0d9488, deckBottom: 0x115e59, rail: 0x14b8a6, line: 0x2dd4bf, shadow: 0x0f766e },
+      { deckTop: 0xb45309, deckBottom: 0x92400e, rail: 0xd97706, line: 0xf59e0b, shadow: 0x78350f },
+      { deckTop: 0x4f46e5, deckBottom: 0x3730a3, rail: 0x6366f1, line: 0x818cf8, shadow: 0x312e81 },
+    ];
     this.laneScales.forEach((scale, index) => {
       const g = this.make.graphics({ x: 0, y: 0, add: false });
       const textureWidth = this.bridgeTextureWidth;
       const textureHeight = Math.round(this.bridgeDeckBaseHeight * scale);
-      
-      // Main Deck
-      g.fillStyle(0x334155, 1);
+      const radius = Math.max(2, Math.round(4 * scale));
+      const railH = Math.max(4, Math.round(8 * scale));
+      const shadowH = Math.round(6 * scale);
+      const pal = bridgePalette[index] ?? bridgePalette[1];
+
+      g.fillStyle(pal.deckBottom, 1);
       g.fillRect(0, 0, textureWidth, textureHeight);
-      
-      // Railing Top (running surface edge)
-      g.fillStyle(0x475569, 1);
-      g.fillRect(0, 0, textureWidth, Math.max(4, Math.round(8 * scale)));
-      
-      // Center Line
-      g.fillStyle(0x475569, 0.5);
+      g.fillGradientStyle(pal.deckTop, pal.deckTop, pal.deckBottom, pal.deckBottom, 1, 1, 1, 1);
+      g.fillRoundedRect(0, 0, textureWidth, textureHeight, radius);
+      g.fillStyle(pal.rail, 1);
+      g.fillRoundedRect(0, 0, textureWidth, railH, radius);
+      g.fillStyle(pal.line, 0.85);
       g.fillRect(0, textureHeight / 2 - Math.round(2 * scale), textureWidth, Math.round(4 * scale));
-      
-      // Side Shadow (bottom edge)
-      g.fillStyle(0x1e293b, 1);
-      g.fillRect(0, textureHeight - Math.round(6 * scale), textureWidth, Math.round(6 * scale));
-      
-      // Grid Detail
-      g.lineStyle(Math.round(2 * scale), 0x64748b, 0.4);
-      for (let i = 0; i < textureWidth; i += 40) {
-        g.lineBetween(i, 0, i, textureHeight);
+      g.fillStyle(pal.shadow, 1);
+      g.fillRoundedRect(0, textureHeight - shadowH, textureWidth, shadowH, radius);
+      g.lineStyle(Math.round(1.5 * scale), pal.line, 0.35);
+      for (let i = 0; i < textureWidth; i += 50) {
+        g.lineBetween(i, railH, i, textureHeight - shadowH);
       }
-      
       g.generateTexture(`bridge_deck_${index}`, textureWidth, textureHeight);
     });
   }
@@ -292,7 +296,7 @@ export class SweetSprintScene extends Phaser.Scene {
       this.tweens.add({ targets: rArm, angle: { from: -45, to: 45 }, duration: 250, yoyo: true, repeat: -1 });
     }
 
-    this.player.setScale(this.laneScales[this.currentLane]);
+    this.player.setScale(this.laneScales[this.currentLane] * this.playerScaleMultiplier);
     this.physics.add.existing(this.player);
     const bodyPhys = this.player.body as Phaser.Physics.Arcade.Body;
     bodyPhys.setSize(30, 80);
@@ -447,7 +451,7 @@ export class SweetSprintScene extends Phaser.Scene {
     this.tweens.add({
       targets: this.player,
       y: this.laneYPositions[this.currentLane],
-      scale: this.laneScales[this.currentLane],
+      scale: this.laneScales[this.currentLane] * this.playerScaleMultiplier,
       duration: 200,
       ease: 'Quad.out',
       onComplete: () => {
@@ -480,14 +484,14 @@ export class SweetSprintScene extends Phaser.Scene {
     this.onSoundEvent?.('slide');
     this.tweens.add({
       targets: this.player,
-      scaleY: this.laneScales[this.currentLane] * 0.4,
+      scaleY: this.laneScales[this.currentLane] * this.playerScaleMultiplier * 0.4,
       y: this.player.y + 22,
       duration: 400,
       yoyo: true,
       ease: 'Cubic.out',
       onComplete: () => {
         this.player.setData('sliding', false);
-        this.player.scaleY = this.laneScales[this.currentLane];
+        this.player.scaleY = this.laneScales[this.currentLane] * this.playerScaleMultiplier;
         this.player.y = this.laneYPositions[this.currentLane];
       }
     });
@@ -611,7 +615,7 @@ export class SweetSprintScene extends Phaser.Scene {
     container.setData('lane', laneIdx);
     container.setData('type', type);
     container.setDepth(14 + laneIdx * 10);
-    container.setScale(this.laneScales[laneIdx]);
+    container.setScale(this.laneScales[laneIdx] * this.obstacleScaleMultiplier);
     this.physics.add.existing(container);
     this.obstacles.add(container);
     const body = container.body as Phaser.Physics.Arcade.Body;
@@ -738,7 +742,7 @@ export class SweetSprintScene extends Phaser.Scene {
     
     this.tweens.add({
       targets: this.player,
-      scale: this.laneScales[this.currentLane] * 1.3,
+      scale: this.laneScales[this.currentLane] * this.playerScaleMultiplier * 1.3,
       duration: 80,
       yoyo: true
     });
