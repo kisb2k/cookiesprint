@@ -2,7 +2,7 @@ import * as Phaser from 'phaser';
 
 /**
  * Generates illustrated-style game textures for multiple characters.
- * Each character wears a Girl Scout vest (Green).
+ * Each character wears a Girl Scout vest (Blue).
  */
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -102,9 +102,9 @@ export class BootScene extends Phaser.Scene {
     g.generateTexture('sparkle', 16, 16);
   }
 
-  private drawRunnerFrame(g: Phaser.GameObjects.Graphics, frameIndex: number, hairColor: number, shirtColor: number) {
+  private drawRunnerFrame(g: Phaser.GameObjects.Graphics, frameIndex: number, id: string, hairColor: number, shirtColor: number) {
     const skin = 0xffdbac;
-    const vestColor = 0x166534; // Girl Scout Green
+    const vestColor = 0x1e40af; // Girl Scout Blue
     const pants = 0x334155;
     const outline = 0x1e293b;
     const legSwing = [0, 18, 28, 18, 0, -18][frameIndex % 6];
@@ -113,9 +113,28 @@ export class BootScene extends Phaser.Scene {
     const cy = 88;
     const r = 5;
 
-    // Head/Hair
+    // Hair Style logic based on character ID
     g.fillStyle(hairColor, 1);
-    g.fillRoundedRect(cx - 16, cy - 82, 32, 25, 8);
+    if (id === 'arya') {
+      // Bob hairstyle
+      g.fillRoundedRect(cx - 16, cy - 82, 32, 28, 8);
+    } else if (id === 'emily') {
+      // Pigtails
+      g.fillRoundedRect(cx - 16, cy - 82, 32, 25, 8);
+      g.fillCircle(cx - 18, cy - 72, 8);
+      g.fillCircle(cx + 18, cy - 72, 8);
+    } else if (id === 'maggie') {
+      // High Ponytail
+      g.fillRoundedRect(cx - 16, cy - 82, 32, 25, 8);
+      g.fillEllipse(cx + 10, cy - 85, 10, 14);
+    } else if (id === 'charlotte') {
+      // Long flowing hair
+      g.fillRoundedRect(cx - 18, cy - 82, 36, 40, 10);
+    } else {
+      g.fillRoundedRect(cx - 16, cy - 82, 32, 25, 8);
+    }
+
+    // Head/Face
     g.fillStyle(skin, 1);
     g.fillCircle(cx, cy - 65, 14);
     
@@ -123,7 +142,7 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(shirtColor, 1);
     g.fillRoundedRect(cx - 14, cy - 52, 28, 38, r);
     
-    // Vest (Girl Scout Vest overlay)
+    // Vest (Girl Scout Blue Vest overlay)
     g.fillStyle(vestColor, 1);
     // Left side of vest
     g.fillRoundedRect(cx - 14, cy - 52, 10, 38, { tl: r, bl: r, tr: 0, br: 0 });
@@ -160,7 +179,7 @@ export class BootScene extends Phaser.Scene {
     
     for (let i = 0; i < numFrames; i++) {
       g.clear();
-      this.drawRunnerFrame(g, i, hair, shirt);
+      this.drawRunnerFrame(g, i, id, hair, shirt);
       g.generateTexture(`player_${id}_run_frame_${i}`, frameWidth, frameHeight);
     }
     
