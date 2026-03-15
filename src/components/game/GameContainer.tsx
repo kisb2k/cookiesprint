@@ -16,6 +16,21 @@ function useIsTouch() {
   return isTouch;
 }
 
+function useOrientation() {
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('landscape');
+  
+  useEffect(() => {
+    const handleResize = () => {
+      setOrientation(window.innerHeight > window.innerWidth ? 'portrait' : 'landscape');
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
+  return orientation;
+}
+
 import { BootScene } from './BootScene';
 import { SweetSprintScene } from './SweetSprintScene';
 import { Button } from '@/components/ui/button';
@@ -23,7 +38,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Cookie, Play, RotateCcw, Heart, Pause, Home, 
   Volume2, VolumeX, Maximize, Minimize, 
-  Keyboard, Smartphone, MousePointer2, MoveHorizontal
+  Keyboard, Smartphone, MousePointer2, MoveHorizontal,
+  RotateCw
 } from 'lucide-react';
 import { playSound, setMuted, loadMutePreference, type SoundEvent } from '@/lib/gameSound';
 
@@ -59,6 +75,7 @@ export default function GameContainer() {
   const [cookiePop, setCookiePop] = useState<number | null>(null);
   const phaserGame = useRef<Phaser.Game | null>(null);
   const isTouch = useIsTouch();
+  const orientation = useOrientation();
 
   useEffect(() => {
     setMutedState(loadMutePreference());
@@ -217,52 +234,64 @@ export default function GameContainer() {
   return (
     <div 
       ref={containerRef}
-      className={`relative w-full min-h-dvh flex flex-col items-center justify-center bg-sky-50 overflow-hidden safe-area-inset transition-all duration-300 ${isFullscreen ? 'p-0' : 'p-2 sm:p-4'}`}
+      className={`relative w-full min-h-dvh flex flex-col items-center justify-center bg-sky-50 overflow-hidden transition-all duration-300 ${isFullscreen ? 'p-0' : 'p-2 sm:p-4'}`}
     >
       <div 
         ref={gameRef} 
         tabIndex={0}
-        className={`w-full transition-all duration-300 touch-none ${
-          isFullscreen 
-            ? 'h-full max-w-none rounded-none border-0' 
+        className={`w-full h-full transition-all duration-300 touch-none ${
+          isFullscreen || isTouch
+            ? 'max-w-none rounded-none border-0' 
             : 'max-w-[800px] aspect-[4/3] max-h-[calc(100dvh-2rem)] shadow-2xl rounded-xl sm:rounded-[2rem] border-4 sm:border-8 border-white'
         } bg-white overflow-hidden ${gameState !== 'playing' ? 'blur-md scale-[0.98]' : 'scale-100'}`}
         style={{ touchAction: 'none' }}
       />
 
+      {/* Portrait rotation hint */}
+      {isTouch && orientation === 'portrait' && gameState === 'playing' && (
+        <div className="absolute inset-0 z-50 bg-sky-900/90 backdrop-blur-md flex flex-col items-center justify-center text-white p-8 text-center animate-in fade-in">
+          <RotateCw className="h-16 w-16 mb-4 animate-bounce" />
+          <h2 className="text-2xl font-headline mb-2">Rotate your device</h2>
+          <p className="text-sky-200">Landscape mode is recommended for the best experience!</p>
+          <Button onClick={pauseGame} variant="outline" className="mt-6 border-white text-white hover:bg-white/10">
+            Pause Game
+          </Button>
+        </div>
+      )}
+
       {gameState === 'start' && (
-        <div className={`absolute inset-0 flex items-center justify-center z-10 bg-sky-900/40 backdrop-blur-xl transition-opacity duration-300 p-4 ${modalClosing ? 'animate-modal-out' : 'animate-in fade-in duration-300'}`}>
-          <Card className={`w-full max-w-[28rem] border-white border-4 shadow-2xl rounded-2xl sm:rounded-[3rem] overflow-hidden transition-all duration-300 ${modalClosing ? 'animate-modal-zoom-out' : 'animate-in zoom-in-95'}`}>
-            <div className="bg-primary/5 p-8 text-center flex flex-col items-center gap-6 relative">
+        <div className={`absolute inset-0 flex items-center justify-center z-40 bg-sky-900/40 backdrop-blur-xl transition-opacity duration-300 p-4 safe-area-inset ${modalClosing ? 'animate-modal-out' : 'animate-in fade-in duration-300'}`}>
+          <Card className={`w-full max-w-[28rem] max-h-[90dvh] overflow-y-auto border-white border-4 shadow-2xl rounded-2xl sm:rounded-[3rem] transition-all duration-300 ${modalClosing ? 'animate-modal-zoom-out' : 'animate-in zoom-in-95'}`}>
+            <div className="bg-primary/5 p-4 sm:p-8 text-center flex flex-col items-center gap-4 sm:gap-6 relative">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={toggleFullscreen}
-                className="absolute top-4 right-4 rounded-full h-10 w-10 text-primary hover:bg-primary/10"
+                className="absolute top-2 right-2 sm:top-4 sm:right-4 rounded-full h-10 w-10 text-primary hover:bg-primary/10"
                 aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
               >
                 {isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
               </Button>
-              <div className="bg-primary p-6 rounded-[2rem] shadow-xl shadow-primary/20">
-                <BridgeIcon className="h-16 w-16 text-white" />
+              <div className="bg-primary p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] shadow-xl shadow-primary/20">
+                <BridgeIcon className="h-10 w-10 sm:h-16 sm:w-16 text-white" />
               </div>
               <div>
-                <CardTitle className="text-5xl font-headline text-primary mb-2">SweetSprint</CardTitle>
-                <div className="flex items-center justify-center gap-2 text-muted-foreground font-medium">
+                <CardTitle className="text-3xl sm:text-5xl font-headline text-primary mb-1">SweetSprint</CardTitle>
+                <div className="flex items-center justify-center gap-2 text-muted-foreground font-medium text-sm">
                   {isTouch ? <Smartphone className="h-4 w-4" /> : <Keyboard className="h-4 w-4" />}
                   <p>{isTouch ? 'Mobile Controls Active' : 'Desktop Controls Active'}</p>
                 </div>
               </div>
             </div>
-            <CardContent className="flex flex-col gap-6 sm:gap-8 text-center p-6 sm:p-10 bg-white">
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 text-left">
+            <CardContent className="flex flex-col gap-4 sm:gap-8 text-center p-4 sm:p-10 bg-white">
+              <div className="grid grid-cols-2 gap-2 sm:gap-4 text-left">
                 <div className="bg-sky-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-sky-100 flex flex-col gap-1">
                   <p className="text-[10px] font-bold text-sky-600 uppercase tracking-wider">Switch / Jump</p>
                   <div className="flex items-center gap-2">
                     <div className="bg-sky-200/50 p-1.5 rounded-lg">
                       {isTouch ? <MoveHorizontal className="h-4 w-4 text-sky-700 rotate-90" /> : <Keyboard className="h-4 w-4 text-sky-700" />}
                     </div>
-                    <p className="text-xs sm:text-sm font-semibold text-sky-900">
+                    <p className="text-[10px] sm:text-sm font-semibold text-sky-900 leading-tight">
                       {isTouch ? 'Swipe UP / DOWN' : 'UP / DOWN Arrows'}
                     </p>
                   </div>
@@ -273,17 +302,17 @@ export default function GameContainer() {
                     <div className="bg-orange-200/50 p-1.5 rounded-lg">
                       {isTouch ? <Smartphone className="h-4 w-4 text-orange-700" /> : <MousePointer2 className="h-4 w-4 text-orange-700" />}
                     </div>
-                    <p className="text-xs sm:text-sm font-semibold text-orange-900">
+                    <p className="text-[10px] sm:text-sm font-semibold text-orange-900 leading-tight">
                       {isTouch ? 'Swipe LEFT / RIGHT' : 'LEFT / RIGHT Arrows'}
                     </p>
                   </div>
                 </div>
               </div>
-              <div className="flex flex-col gap-3">
-                <Button size="lg" onClick={startGame} className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-8 sm:py-10 text-2xl sm:text-3xl rounded-2xl sm:rounded-[2rem] shadow-2xl transform active:scale-95 transition-all min-h-[48px] touch-manipulation">
-                  <Play className="mr-3 h-10 w-10 fill-white" /> START RUN
+              <div className="flex flex-col gap-2 sm:gap-3">
+                <Button size="lg" onClick={startGame} className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-6 sm:py-10 text-xl sm:text-3xl rounded-2xl sm:rounded-[2rem] shadow-2xl transform active:scale-95 transition-all min-h-[48px] touch-manipulation">
+                  <Play className="mr-2 sm:mr-3 h-6 w-6 sm:h-10 sm:w-10 fill-white" /> START RUN
                 </Button>
-                <Button variant="outline" size="lg" onClick={toggleFullscreen} className="w-full border-primary text-primary hover:bg-primary/5 font-bold rounded-xl sm:rounded-2xl py-6 min-h-[48px] touch-manipulation sm:hidden">
+                <Button variant="outline" size="lg" onClick={toggleFullscreen} className="w-full border-primary text-primary hover:bg-primary/5 font-bold rounded-xl sm:rounded-2xl py-4 sm:hidden min-h-[48px] touch-manipulation">
                   {isFullscreen ? <Minimize className="mr-2 h-5 w-5" /> : <Maximize className="mr-2 h-5 w-5" />}
                   {isFullscreen ? 'EXIT FULLSCREEN' : 'FULLSCREEN MODE'}
                 </Button>
@@ -294,7 +323,7 @@ export default function GameContainer() {
       )}
 
       {gameState === 'paused' && (
-        <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/40 backdrop-blur-md p-4">
+        <div className="absolute inset-0 flex items-center justify-center z-40 bg-black/40 backdrop-blur-md p-4 safe-area-inset">
           <Card className="w-full max-w-[20rem] border-white border-4 shadow-2xl animate-in zoom-in-95 rounded-2xl sm:rounded-[2.5rem]">
             <CardHeader className="text-center">
               <CardTitle className="text-2xl sm:text-3xl font-headline text-primary">Paused</CardTitle>
@@ -315,7 +344,7 @@ export default function GameContainer() {
       )}
 
       {gameState === 'gameover' && (
-        <div className="absolute inset-0 flex items-center justify-center z-10 bg-sky-950/60 backdrop-blur-xl p-4">
+        <div className="absolute inset-0 flex items-center justify-center z-40 bg-sky-950/60 backdrop-blur-xl p-4 safe-area-inset">
           <Card className="w-full max-w-[30rem] border-secondary border-4 shadow-2xl animate-in zoom-in-95 rounded-2xl sm:rounded-[3rem]">
             <CardHeader className="text-center pt-6 sm:pt-10">
               <CardTitle className="text-4xl sm:text-5xl font-headline text-secondary mb-2">Game Over!</CardTitle>
@@ -335,7 +364,7 @@ export default function GameContainer() {
                 </div>
               </div>
               <div className="flex flex-col gap-3 sm:gap-4">
-                <Button size="lg" onClick={restartGame} className="w-full bg-secondary hover:bg-secondary/90 text-white font-bold py-8 sm:py-10 text-xl sm:text-2xl rounded-2xl shadow-xl transform active:scale-95 transition-all min-h-[48px] touch-manipulation">
+                <Button size="lg" onClick={restartGame} className="w-full bg-secondary hover:bg-secondary/90 text-white font-bold py-6 sm:py-10 text-xl sm:text-2xl rounded-2xl shadow-xl transform active:scale-95 transition-all min-h-[48px] touch-manipulation">
                   <RotateCcw className="mr-3 h-6 w-6 sm:h-8 sm:w-8" /> TRY AGAIN
                 </Button>
                 <Button variant="ghost" onClick={goHome} className="w-full text-muted-foreground hover:bg-secondary/5 rounded-2xl min-h-[48px] touch-manipulation">
@@ -348,67 +377,73 @@ export default function GameContainer() {
       )}
 
       {cookiePop !== null && (
-        <div className="absolute top-32 left-1/2 -translate-x-1/2 z-20 pointer-events-none animate-cookie-pop">
+        <div className="absolute top-32 left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-cookie-pop">
           <span className="text-2xl font-headline text-amber-500 drop-shadow-lg">+{cookiePop}</span>
         </div>
       )}
 
-      <div className={`absolute ${isFullscreen ? 'top-2 sm:top-6' : 'top-4 sm:top-10'} left-0 right-0 flex justify-between px-4 sm:px-16 z-0 pointer-events-none`}>
-        <div className="flex gap-2 sm:gap-4">
-          <div className={`bg-white/90 backdrop-blur-xl px-4 sm:px-8 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center min-w-[60px] sm:min-w-0 transition-transform duration-200 ${hudPulse ? 'animate-hud-pulse' : ''}`}>
-            <span className="text-[9px] sm:text-[10px] font-black text-sky-400 uppercase tracking-widest mb-0.5">Metres</span>
-            <span className="text-xl sm:text-3xl font-headline text-sky-900 tabular-nums">{score}</span>
-          </div>
-          <div className={`bg-white/90 backdrop-blur-xl px-4 sm:px-8 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center min-w-[60px] sm:min-w-0 transition-transform duration-200 ${hudPulse ? 'animate-hud-pulse' : ''}`}>
-            <span className="text-[9px] sm:text-[10px] font-black text-orange-400 uppercase tracking-widest mb-0.5">Cookies</span>
-            <span className="text-xl sm:text-3xl font-headline text-orange-600 tabular-nums flex items-center">
-              <Cookie className="mr-1 sm:mr-2 h-4 w-4 sm:h-6 sm:w-6 fill-orange-500 text-orange-600" /> {cookies}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex gap-2 sm:gap-4 items-center">
-          <div className="bg-white/90 backdrop-blur-xl px-4 sm:px-8 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center">
-            <span className="text-[9px] sm:text-[10px] font-black text-red-400 uppercase tracking-widest mb-1 sm:mb-1.5">Health</span>
-            <div className="flex gap-1 sm:gap-2">
-              {[...Array(2)].map((_, i) => (
-                <Heart 
-                  key={i} 
-                  className={`h-5 w-5 sm:h-6 sm:w-6 transition-all duration-300 ${i < lives ? 'fill-red-500 text-red-500 scale-100' : 'text-slate-200 scale-75'}`} 
-                />
-              ))}
+      {/* HUD and Controls Layer */}
+      <div className={`absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-2 sm:p-6 safe-area-inset`}>
+        {/* Top HUD */}
+        <div className="flex justify-between items-start w-full">
+          <div className="flex gap-2 sm:gap-4">
+            <div className={`bg-white/90 backdrop-blur-xl px-3 sm:px-8 py-1.5 sm:py-3 rounded-lg sm:rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center min-w-[50px] sm:min-w-0 transition-transform duration-200 ${hudPulse ? 'animate-hud-pulse' : ''}`}>
+              <span className="text-[8px] sm:text-[10px] font-black text-sky-400 uppercase tracking-widest mb-0.5">Metres</span>
+              <span className="text-base sm:text-3xl font-headline text-sky-900 tabular-nums">{score}</span>
+            </div>
+            <div className={`bg-white/90 backdrop-blur-xl px-3 sm:px-8 py-1.5 sm:py-3 rounded-lg sm:rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center min-w-[50px] sm:min-w-0 transition-transform duration-200 ${hudPulse ? 'animate-hud-pulse' : ''}`}>
+              <span className="text-[8px] sm:text-[10px] font-black text-orange-400 uppercase tracking-widest mb-0.5">Cookies</span>
+              <span className="text-base sm:text-3xl font-headline text-orange-600 tabular-nums flex items-center">
+                <Cookie className="mr-1 sm:mr-2 h-3 w-3 sm:h-6 sm:w-6 fill-orange-500 text-orange-600" /> {cookies}
+              </span>
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Button
-              type="button"
-              size="icon"
-              onClick={toggleMute}
-              className="rounded-xl sm:rounded-2xl h-11 w-11 sm:h-12 sm:w-12 min-h-[44px] min-w-[44px] pointer-events-auto border-2 border-white/80 bg-white/90 hover:bg-white text-sky-800 shadow-lg touch-manipulation"
-              aria-label={muted ? 'Unmute' : 'Mute'}
-            >
-              {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-            </Button>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 items-center sm:items-start">
+            <div className="bg-white/90 backdrop-blur-xl px-3 sm:px-8 py-1.5 sm:py-3 rounded-lg sm:rounded-2xl shadow-xl border-2 border-white/50 flex flex-col items-center">
+              <span className="text-[8px] sm:text-[10px] font-black text-red-400 uppercase tracking-widest mb-1 sm:mb-1.5">Health</span>
+              <div className="flex gap-1 sm:gap-2">
+                {[...Array(2)].map((_, i) => (
+                  <Heart 
+                    key={i} 
+                    className={`h-4 w-4 sm:h-6 sm:w-6 transition-all duration-300 ${i < lives ? 'fill-red-500 text-red-500 scale-100' : 'text-slate-200 scale-75'}`} 
+                  />
+                ))}
+              </div>
+            </div>
             
-            <Button
-              type="button"
-              size="icon"
-              onClick={toggleFullscreen}
-              className="rounded-xl sm:rounded-2xl h-11 w-11 sm:h-12 sm:w-12 min-h-[44px] min-w-[44px] pointer-events-auto border-2 border-white/80 bg-white/90 hover:bg-white text-sky-800 shadow-lg touch-manipulation"
-              aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-            >
-              {isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
-            </Button>
+            <div className="flex flex-row sm:flex-col gap-2">
+              <Button
+                type="button"
+                size="icon"
+                onClick={toggleMute}
+                className="rounded-lg sm:rounded-2xl h-9 w-9 sm:h-12 sm:w-12 pointer-events-auto border-2 border-white/80 bg-white/90 hover:bg-white text-sky-800 shadow-lg touch-manipulation"
+                aria-label={muted ? 'Unmute' : 'Mute'}
+              >
+                {muted ? <VolumeX className="h-4 w-4 sm:h-5 sm:w-5" /> : <Volume2 className="h-4 w-4 sm:h-5 sm:w-5" />}
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                onClick={toggleFullscreen}
+                className="rounded-lg sm:rounded-2xl h-9 w-9 sm:h-12 sm:w-12 pointer-events-auto border-2 border-white/80 bg-white/90 hover:bg-white text-sky-800 shadow-lg touch-manipulation"
+                aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+              >
+                {isFullscreen ? <Minimize className="h-4 w-4 sm:h-5 sm:w-5" /> : <Maximize className="h-4 w-4 sm:h-5 sm:w-5" />}
+              </Button>
+            </div>
           </div>
-          
+        </div>
+
+        {/* Bottom controls/Pause button */}
+        <div className="flex justify-end w-full">
           {gameState === 'playing' && (
             <Button 
               size="icon" 
               onClick={pauseGame} 
-              className="rounded-xl sm:rounded-2xl h-14 w-14 sm:h-16 sm:w-16 min-h-[48px] min-w-[48px] shadow-2xl pointer-events-auto border-4 border-white bg-primary hover:bg-primary/90 text-white transform hover:scale-105 active:scale-90 transition-all touch-manipulation"
+              className="rounded-xl sm:rounded-2xl h-12 w-12 sm:h-16 sm:w-16 shadow-2xl pointer-events-auto border-4 border-white bg-primary hover:bg-primary/90 text-white transform hover:scale-105 active:scale-90 transition-all touch-manipulation mb-2 mr-2"
             >
-              <Pause className="h-7 w-7 sm:h-8 sm:w-8 fill-white" />
+              <Pause className="h-6 w-6 sm:h-8 sm:w-8 fill-white" />
             </Button>
           )}
         </div>
