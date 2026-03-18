@@ -9,27 +9,38 @@ export class BootScene extends Phaser.Scene {
     super('BootScene');
   }
 
+  preload() {
+    this.load.spritesheet('girl_run', '/assets/character/run.png', {
+      frameWidth: 64,
+      frameHeight: 64,
+    });
+    this.load.image('obstacle_vehicle', '/assets/obstacle/obstacle_vehicle.png');
+    this.load.image('obstacle_pet', '/assets/obstacle/obstacle_pet.png');
+    this.load.image('obstacle_person', '/assets/obstacle/obstacle_person.png');
+    this.load.image('obstacle_waterPuddle', '/assets/obstacle/obstacle_waterPuddle.png');
+  }
+
   create() {
     this.generateDustTexture();
     this.generateShadowTexture();
     this.generateCookieTexture();
     this.generateSparkleTexture();
-    
-    // Character definitions
-    const characters = [
-      { id: 'arya', hair: 0x634433, shirt: 0x38bdf8 },      // Brown hair, Light Blue shirt
-      { id: 'emily', hair: 0xfde047, shirt: 0xf472b6 },     // Blonde hair, Pink shirt
-      { id: 'maggie', hair: 0x1e293b, shirt: 0xa855f7 },    // Black hair, Purple shirt
-      { id: 'charlotte', hair: 0xea580c, shirt: 0xfacc15 }  // Red hair, Yellow shirt
-    ];
 
-    characters.forEach(char => {
-      this.generatePlayerRunFrames(char.id, char.hair, char.shirt);
-    });
+    if (!this.textures.exists('girl_run')) {
+      const characters = [
+      { id: 'arya', hair: 0x634433, shirt: 0x38bdf8 },
+      { id: 'emily', hair: 0xfde047, shirt: 0xf472b6 },
+      { id: 'maggie', hair: 0x1e293b, shirt: 0xa855f7 },
+      { id: 'charlotte', hair: 0xea580c, shirt: 0xfacc15 },
+      ];
+      characters.forEach(char => {
+        this.generatePlayerRunFrames(char.id, char.hair, char.shirt);
+      });
+    }
 
-    this.generateObstacleTextures();
     this.generateParallaxTextures();
     this.generateCloudTexture();
+
     this.scene.start('SweetSprintScene');
   }
 
@@ -200,85 +211,6 @@ export class BootScene extends Phaser.Scene {
         (canvasTex as any).refresh();
       }
     }
-  }
-
-  private generateObstacleTextures() {
-    const gw = 120;
-    const gh = 70;
-    const gV = this.make.graphics({ x: 0, y: 0, add: false });
-    gV.fillStyle(0xdc2626, 1);
-    gV.fillRoundedRect(10, 15, 100, 45, 8);
-    gV.lineStyle(2, 0x991b1b, 1);
-    gV.strokeRoundedRect(10, 15, 100, 45, 8);
-    gV.fillStyle(0xfef2f2, 1);
-    gV.fillRoundedRect(35, 8, 50, 25, 5);
-    gV.lineStyle(1, 0xfecaca, 1);
-    gV.strokeRoundedRect(35, 8, 50, 25, 5);
-    gV.fillStyle(0x7dd3fc, 1);
-    gV.fillRoundedRect(42, 12, 18, 14, 2);
-    gV.fillStyle(0x000000, 1);
-    gV.fillCircle(28, 58, 10);
-    gV.fillCircle(92, 58, 10);
-    gV.fillStyle(0x374151, 1);
-    gV.fillCircle(28, 58, 6);
-    gV.fillCircle(92, 58, 6);
-    gV.generateTexture('obstacle_vehicle', gw, gh);
-
-    const pw = 56;
-    const ph = 50;
-    const gP = this.make.graphics({ x: 0, y: 0, add: false });
-    gP.fillStyle(0xd97706, 1);
-    gP.fillEllipse(28, 30, 22, 18);
-    gP.lineStyle(2, 0xb45309, 1);
-    gP.strokeEllipse(28, 30, 22, 18);
-    gP.fillStyle(0xf59e0b, 1);
-    gP.fillCircle(28, 12, 14);
-    gP.lineStyle(1, 0xd97706, 1);
-    gP.strokeCircle(28, 12, 14);
-    gP.fillStyle(0x78350f, 1);
-    gP.fillEllipse(18, 4, 10, 14);
-    gP.fillEllipse(38, 4, 10, 14);
-    gP.fillStyle(0x000000, 1);
-    gP.fillCircle(32, 11, 3);
-    gP.fillStyle(0xfbbf24, 1);
-    gP.fillRoundedRect(20, 16, 16, 4, 2);
-    gP.generateTexture('obstacle_pet', pw, ph);
-
-    const gPer = this.make.graphics({ x: 0, y: 0, add: false });
-    const perW = 40;
-    const perH = 90;
-    gPer.fillStyle(0x166534, 1);
-    gPer.fillRoundedRect(12, 0, 16, 28, 3);
-    gPer.lineStyle(1, 0x14532d, 1);
-    gPer.strokeRoundedRect(12, 0, 16, 28, 3);
-    gPer.fillStyle(0x22c55e, 1);
-    gPer.fillRoundedRect(8, 28, 24, 38, 5);
-    gPer.lineStyle(1, 0x16a34a, 1);
-    gPer.strokeRoundedRect(8, 28, 24, 38, 5);
-    gPer.fillStyle(0xffdbac, 1);
-    gPer.fillCircle(20, -5, 12);
-    gPer.lineStyle(1, 0x92400e, 0.8);
-    gPer.strokeCircle(20, -5, 12);
-    gPer.fillStyle(0x1e40af, 1);
-    gPer.fillRoundedRect(6, -12, 28, 10, 4);
-    gPer.fillStyle(0x333333, 1);
-    gPer.fillCircle(16, -7, 2);
-    gPer.fillCircle(24, -7, 2);
-    gPer.fillStyle(0x15803d, 1);
-    gPer.fillRoundedRect(10, 66, 8, 24, 3);
-    gPer.fillRoundedRect(22, 66, 8, 24, 3);
-    gPer.generateTexture('obstacle_person', perW, perH);
-
-    const pudW = 80;
-    const pudH = 28;
-    const gPud = this.make.graphics({ x: 0, y: 0, add: false });
-    gPud.fillStyle(0x06b6d4, 1);
-    gPud.fillEllipse(40, 14, 72, 22);
-    gPud.lineStyle(2, 0x0891b2, 1);
-    gPud.strokeEllipse(40, 14, 72, 22);
-    gPud.fillStyle(0x67e8f9, 1);
-    gPud.fillEllipse(32, 10, 24, 10);
-    gPud.generateTexture('obstacle_waterPuddle', pudW, pudH);
   }
 
   private generateParallaxTextures() {

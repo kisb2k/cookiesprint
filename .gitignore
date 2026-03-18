@@ -40,6 +40,10 @@ next-env.d.ts
 .genkit/*
 .env*
 
+# API keys (never commit)
+config/gemini-api.key
+config/*.key
+
 # firebase
 firebase-debug.log
 firestore-debug.log

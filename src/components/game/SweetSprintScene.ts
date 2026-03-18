@@ -12,7 +12,7 @@ export class SweetSprintScene extends Phaser.Scene {
   private readonly bridgeDeckBaseHeight = 72;
   private readonly obstacleScaleMultiplier = 0.78;
   private readonly playerScaleMultiplier = 1.05;
-  
+
   private score: number = 0;
   private distance: number = 0;
   private cookiesCollected: number = 0;
@@ -48,7 +48,8 @@ export class SweetSprintScene extends Phaser.Scene {
   private parallaxMid!: Phaser.GameObjects.TileSprite;
   private parallaxNear!: Phaser.GameObjects.TileSprite;
   private cookieCollectEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
-  private readonly playerVisualHeight = 50;
+  /** 32 for 64px girl_run sprite, 50 for procedural */
+  private playerVisualHeight = 50;
   private shakeAmount: number = 0;
   private shakeOrigin: { x: number; y: number } = { x: 0, y: 0 };
 
@@ -101,18 +102,20 @@ export class SweetSprintScene extends Phaser.Scene {
 
   private updatePlayerTexture() {
     const runner = this.player.getAt(1) as Phaser.GameObjects.Sprite;
-    const animKey = `run_${this.characterId}`;
-    
+    const useSprite = this.textures.exists('girl_run');
+    const texKey = useSprite ? 'girl_run' : `player_${this.characterId}_run`;
+    const animKey = useSprite ? 'run_girl' : `run_${this.characterId}`;
+
     if (!this.anims.exists(animKey)) {
       this.anims.create({
         key: animKey,
-        frames: this.anims.generateFrameNumbers(`player_${this.characterId}_run`, { start: 0, end: 5 }),
+        frames: this.anims.generateFrameNumbers(texKey, { start: 0, end: 5 }),
         frameRate: 14,
         repeat: -1
       });
     }
-    
-    runner.setTexture(`player_${this.characterId}_run`, 0);
+
+    runner.setTexture(texKey, 0);
     runner.play(animKey);
   }
 
@@ -145,6 +148,7 @@ export class SweetSprintScene extends Phaser.Scene {
       this.createCloud(Phaser.Math.Between(0, width), Phaser.Math.Between(30, 120));
     }
 
+    this.playerVisualHeight = this.textures.exists('girl_run') ? 32 : 50;
     this.createBridgeTextures();
     this.laneYPositions.forEach((laneY, index) => {
       const scale = this.laneScales[index];
@@ -264,8 +268,8 @@ export class SweetSprintScene extends Phaser.Scene {
     shadow.setOrigin(0.5, 0.5);
     this.player.add(shadow);
     
-    // Initial runner sprite - texture updated via updatePlayerTexture
-    const runner = this.add.sprite(0, -this.playerVisualHeight, `player_${this.characterId}_run`, 0);
+    const texKey = this.textures.exists('girl_run') ? 'girl_run' : `player_${this.characterId}_run`;
+    const runner = this.add.sprite(0, -this.playerVisualHeight, texKey, 0);
     runner.setOrigin(0.5, 1);
     this.player.add(runner);
 
@@ -520,8 +524,9 @@ export class SweetSprintScene extends Phaser.Scene {
     shadow.setOrigin(0.5, 0.5);
     shadow.setScale(1.2);
     container.add(shadow);
-    
-    const sprite = this.add.sprite(0, 0, `obstacle_${type}`);
+
+    const texKey = `obstacle_${type}`;
+    const sprite = this.add.sprite(0, 0, texKey);
     sprite.setOrigin(0.5, 1);
     container.add(sprite);
     
